@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coming Soon</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-1: #fff8ef;
+            --bg-2: #f8e4d0;
+            --bg-3: #f3c9a9;
+            --accent-1: #d96c4e;
+            --accent-2: #ffb36b;
+            --accent-3: #b84f3d;
+            --text-main: #3b241d;
+            --text-soft: #6b4a3f;
+            --text-muted: #8b6a5f;
+        }
+
+        *::selection {
+            background: rgba(217, 108, 78, 0.2);
+        }
+
+        body {
+            position: relative;
+            min-height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-main);
+            background:
+                radial-gradient(circle at 15% 20%, rgba(255, 179, 107, 0.55), transparent 24%),
+                radial-gradient(circle at 85% 15%, rgba(217, 108, 78, 0.28), transparent 22%),
+                radial-gradient(circle at 75% 78%, rgba(184, 79, 61, 0.18), transparent 20%),
+                linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 45%, var(--bg-3) 100%);
+            isolation: isolate;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -20%;
+            z-index: -3;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 20% 35%, rgba(255, 179, 107, 0.52), transparent 20%),
+                radial-gradient(circle at 80% 20%, rgba(217, 108, 78, 0.4), transparent 18%),
+                radial-gradient(circle at 65% 72%, rgba(255, 140, 92, 0.34), transparent 22%),
+                radial-gradient(circle at 10% 85%, rgba(184, 79, 61, 0.24), transparent 18%);
+            filter: blur(60px);
+            animation: backgroundFlow 9s ease-in-out infinite alternate;
+            transform-origin: center;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            pointer-events: none;
+            opacity: 0.18;
+            background:
+                linear-gradient(rgba(255,255,255,0.25) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px);
+            background-size: 42px 42px;
+            mask-image: radial-gradient(circle at center, black 45%, transparent 90%);
+            -webkit-mask-image: radial-gradient(circle at center, black 45%, transparent 90%);
+            animation: gridDrift 12s linear infinite;
+        }
+
+        .background {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(95px);
+            opacity: 0.5;
+            animation: floatOrb 9s ease-in-out infinite;
+            will-change: transform;
+        }
+
+        .orb-1 {
+            width: 360px;
+            height: 360px;
+            top: 4%;
+            left: 4%;
+            background: rgba(255, 179, 107, 0.42);
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            top: 8%;
+            right: 8%;
+            background: rgba(217, 108, 78, 0.34);
+            animation-delay: -2s;
+        }
+
+        .orb-3 {
+            width: 420px;
+            height: 420px;
+            bottom: -8%;
+            left: 16%;
+            background: rgba(255, 150, 120, 0.3);
+            animation-delay: -4s;
+        }
+
+        .orb-4 {
+            width: 320px;
+            height: 320px;
+            bottom: 4%;
+            right: 10%;
+            background: rgba(184, 79, 61, 0.26);
+            animation-delay: -1s;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+            z-index: 1;
+        }
+
+        .content {
+            width: min(100%, 900px);
+        }
+
+        h1 {
+            font-family: Georgia, "Times New Roman", Times, serif;
+            font-size: clamp(2.2rem, 6vw, 5.5rem);
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+            text-transform: uppercase;
+            white-space: nowrap;
+            line-height: 1;
+            text-shadow: 0 3px 12px rgba(255, 255, 255, 0.22);
+        }
+
+        p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: var(--text-soft);
+            margin-bottom: 2.25rem;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.25rem;
+        }
+
+        .social-icon {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            text-decoration: none;
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(121, 70, 52, 0.08);
+        }
+
+        .social-icon svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+        }
+
+        .social-icon:hover {
+            transform: translateY(-4px) scale(1.03);
+            background: rgba(255, 255, 255, 0.45);
+        }
+
+        .social-icon.ig:hover {
+            color: #c75b47;
+            box-shadow: 0 0 24px rgba(199, 91, 71, 0.22);
+        }
+
+        .social-icon.fb:hover {
+            color: #9c5f46;
+            box-shadow: 0 0 24px rgba(156, 95, 70, 0.2);
+        }
+
+        .social-icon.gh:hover {
+            color: #5a3d33;
+            box-shadow: 0 0 24px rgba(90, 61, 51, 0.18);
+        }
+
+        footer {
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            z-index: 1;
+            border-top: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes backgroundFlow {
+            0% {
+                transform: translate3d(-6%, -4%, 0) scale(1) rotate(0deg);
+            }
+            25% {
+                transform: translate3d(5%, -2%, 0) scale(1.08) rotate(4deg);
+            }
+            50% {
+                transform: translate3d(8%, 5%, 0) scale(1.14) rotate(-4deg);
+            }
+            75% {
+                transform: translate3d(-4%, 8%, 0) scale(1.08) rotate(3deg);
+            }
+            100% {
+                transform: translate3d(-8%, 4%, 0) scale(1.12) rotate(-3deg);
+            }
+        }
+
+        @keyframes floatOrb {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+            20% {
+                transform: translate(40px, -35px) scale(1.12);
+            }
+            40% {
+                transform: translate(-30px, 30px) scale(0.92);
+            }
+            60% {
+                transform: translate(55px, 18px) scale(1.08);
+            }
+            80% {
+                transform: translate(-22px, -42px) scale(0.96);
+            }
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+        }
+
+        @keyframes gridDrift {
+            0% {
+                transform: translate3d(0, 0, 0);
+            }
+            50% {
+                transform: translate3d(-12px, -8px, 0);
+            }
+            100% {
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: clamp(1.6rem, 8vw, 3rem);
+                letter-spacing: 0.05em;
+            }
+
+            p {
+                font-size: 1rem;
+            }
+
+            .social-links {
+                gap: 0.9rem;
+            }
+
+            .social-icon {
+                width: 48px;
+                height: 48px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            body::before,
+            body::after,
+            .orb {
+                animation: none;
+            }
+
+            .social-icon {
+                transition: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background" aria-hidden="true">
+        <span class="orb orb-1"></span>
+        <span class="orb orb-2"></span>
+        <span class="orb orb-3"></span>
+        <span class="orb orb-4"></span>
+    </div>
+
+    <main>
+        <div class="content">
+            <h1>COMING SOON</h1>
+            <p>My portfolio is currently under construction.</p>
+
+            <div class="social-links">
+                <a href="https://www.instagram.com/davidka23tcrf" class="social-icon ig" aria-label="Instagram">
+                    <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm3.98-10.822a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                </a>
+                <a href="https://www.facebook.com/profile.php?id=100031063698968" class="social-icon fb" aria-label="Facebook">
+                    <svg viewBox="0 0 24 24"><path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/></svg>
+                </a>
+                <a href="https://github.com/davidka23tcrf2/" class="social-icon gh" aria-label="GitHub">
+                    <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2026 Dávid Tóth. All rights reserved.
+    </footer>
+</body>
+</html>
