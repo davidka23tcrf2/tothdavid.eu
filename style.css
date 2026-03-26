@@ -1,6 +1,6 @@
 /* ── Reset ─────────────────────────────────────── */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-html{font-size:18px}
+html{font-size:18px;background:#0a0a0f}
 body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;overflow:hidden;height:100vh;width:100vw}
 
 /* ══════════════════════════════════════════════════
@@ -21,6 +21,28 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
 .loader-text{margin-top:1.2rem;font-size:1rem;color:#71717a;letter-spacing:.1em;font-weight:500}
 .loader-dots::after{content:'';animation:dots 1.4s steps(4,end) infinite}
 @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+/* ── Rotate Prompt (mobile portrait only) ─────── */
+.rotate-prompt{
+  display:none;position:fixed;inset:0;z-index:10000;
+  background:rgba(10,10,15,.96);backdrop-filter:blur(20px);
+  align-items:center;justify-content:center;
+}
+.rotate-prompt.dismissed{display:none!important}
+.rotate-content{text-align:center;display:flex;flex-direction:column;align-items:center;gap:1.2rem}
+.rotate-icon{font-size:3.5rem;animation:rotatePhone 2s ease-in-out infinite}
+@keyframes rotatePhone{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
+.rotate-content p{font-size:1.1rem;color:#d4d4dc;font-weight:500;max-width:250px;line-height:1.5}
+.rotate-dismiss{
+  background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);
+  color:#a5b4fc;padding:8px 20px;border-radius:10px;font-size:.85rem;
+  font-family:inherit;cursor:pointer;transition:all .3s;
+}
+.rotate-dismiss:hover{background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5)}
+
+@media(max-width:768px) and (orientation:portrait){
+  .rotate-prompt:not(.dismissed){display:flex}
+}
 
 /* ══════════════════════════════════════════════════
    SLIDE ENGINE
@@ -242,8 +264,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
 
 @media(max-width:768px){
   html{font-size:15px}
-  .slide{padding:1.8rem 1.2rem;align-items:flex-start;overflow-y:auto}
-  .slide-inner{height:auto;min-height:100%;justify-content:center;gap:1.2rem}
+  .slide{padding:1.8rem 1.2rem;align-items:center;overflow:visible;-webkit-overflow-scrolling:none}
+  .slide-inner{height:auto;justify-content:center;gap:1rem}
+
+  /* Deck clips everything, but slides let orbs bleed */
+  .deck{overflow:hidden}
   .center-slide{text-align:center;align-items:center}
 
   /* Typography */
@@ -271,10 +296,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
   .char-card{padding:1.2rem}
   .char-card h3{font-size:1rem}
 
-  /* Table — horizontally scrollable */
-  .styled-table{font-size:.82rem;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .styled-table th,.styled-table td{padding:.8rem .9rem;white-space:nowrap}
-  .styled-table th{font-size:.78rem}
+  /* Table — fit on screen, allow natural wrapping */
+  .styled-table{font-size:.7rem;display:table;width:100%;table-layout:fixed;overflow:visible}
+  .styled-table th,.styled-table td{padding:.5rem .4rem;white-space:normal;overflow-wrap:break-word;word-break:normal}
+  .styled-table th{font-size:.65rem}
+  .styled-table td:first-child,.styled-table th:first-child{width:22%}
+  .styled-table td:nth-child(2),.styled-table th:nth-child(2){width:30%}
+  .styled-table td:nth-child(3),.styled-table th:nth-child(3){width:48%}
 
   /* Theme columns */
   .theme-col{padding:1.2rem}
@@ -292,9 +320,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
   .orb1,.orb2,.orb3,.orb4,.orb5,.orb6{width:60vw;height:60vw}
   .bg-glow{width:70vw;height:70vw;filter:blur(80px)}
 
-  /* Navigation */
-  .nav-dots{right:.5rem;gap:5px}
-  .nav-dot{width:6px;height:6px;border-width:1.5px}
+  /* Navigation — hide dots on mobile, use arrows/swipe */
+  .nav-dots{display:none}
   .nav-arrows{bottom:.7rem;gap:.5rem}
   .nav-arrow{width:34px;height:34px;font-size:.85rem}
   .slide-number{font-size:.65rem;top:.8rem;right:.8rem}
