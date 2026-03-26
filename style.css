@@ -30,6 +30,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   padding:2.5rem 4rem;opacity:0;visibility:hidden;transform:translateY(40px) scale(.97);
   transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1),visibility 0s .7s;
+  will-change:transform,opacity;
 }
 .slide.active{opacity:1;visibility:visible;transform:translateY(0) scale(1);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1),visibility 0s 0s}
 .slide.exit-up{opacity:0;visibility:hidden;transform:translateY(-40px) scale(.97)}
@@ -66,7 +67,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
 @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 
 /* ── Floating Orbs ────────────────────────────── */
-.orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:-1;opacity:0;transition:opacity 1.5s ease}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:-1;opacity:0;transition:opacity 1.5s ease;will-change:transform,opacity}
 .slide.active .orb{opacity:1}
 .orb1{width:40vw;height:40vw;background:rgba(99,102,241,.2);top:-10%;left:-5%;animation:orbDrift1 12s ease-in-out infinite}
 .orb2{width:32vw;height:32vw;background:rgba(236,72,153,.15);bottom:-10%;right:-5%;animation:orbDrift2 10s ease-in-out infinite}
@@ -223,7 +224,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
 
 /* ── Particles ────────────────────────────────── */
 .particles{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-.particle{position:absolute;border-radius:50%;background:rgba(255,255,255,.1);animation:float linear infinite}
+.particle{position:absolute;border-radius:50%;background:rgba(255,255,255,.1);animation:float linear infinite;will-change:transform,opacity}
 @keyframes float{0%{transform:translateY(100vh) rotate(0);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-10vh) rotate(720deg);opacity:0}}
 
 /* ── Grid Overlay ─────────────────────────────── */
@@ -238,9 +239,75 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
   .timeline,.theme-box{grid-template-columns:1fr 1fr}
   .conclusion-grid{grid-template-columns:1fr;max-width:450px}
 }
+
 @media(max-width:768px){
-  .slide{padding:1.5rem 1rem}
-  .two-col,.char-grid,.timeline,.theme-box{grid-template-columns:1fr}
-  .nav-dots{right:.6rem;gap:5px}.nav-dot{width:6px;height:6px}
-  .nav-arrows{bottom:.8rem}.nav-arrow{width:36px;height:36px;font-size:.9rem}
+  html{font-size:15px}
+  .slide{padding:1.8rem 1.2rem;align-items:flex-start;overflow-y:auto}
+  .slide-inner{height:auto;min-height:100%;justify-content:center;gap:1.2rem}
+  .center-slide{text-align:center;align-items:center}
+
+  /* Typography */
+  .slide-title{font-size:clamp(1.6rem,7vw,2.4rem)}
+  .slide-subtitle{font-size:.95rem;max-width:100%}
+  .title-badge{font-size:.65rem;padding:5px 14px}
+  .meta-row{justify-content:center}
+  .meta-chip{font-size:.78rem;padding:5px 12px}
+
+  /* Grids go single column */
+  .two-col,.char-grid,.timeline,.theme-box,.conclusion-grid{grid-template-columns:1fr;max-width:100%}
+
+  /* Cards */
+  .info-card,.adapt-timeline{padding:1.4rem}
+  .info-card h3,.adapt-timeline h3{font-size:1.05rem}
+  .info-card p,.adapt-timeline p,.char-card p,.tl-desc,.theme-col p,.concl-item p,.at-text{font-size:.88rem}
+  .card-icon{font-size:1.6rem}
+
+  /* Timeline */
+  .tl-node{padding:1.2rem;text-align:left}
+  .tl-node::before{margin:0 0 .6rem 0}
+  .tl-time{font-size:.85rem}
+
+  /* Char cards */
+  .char-card{padding:1.2rem}
+  .char-card h3{font-size:1rem}
+
+  /* Table — horizontally scrollable */
+  .styled-table{font-size:.82rem;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .styled-table th,.styled-table td{padding:.8rem .9rem;white-space:nowrap}
+  .styled-table th{font-size:.78rem}
+
+  /* Theme columns */
+  .theme-col{padding:1.2rem}
+  .theme-col h3{font-size:1rem}
+
+  /* Conclusion */
+  .concl-item{padding:1.4rem}
+  .concl-icon{font-size:1.8rem}
+  .concl-item h3{font-size:1rem}
+  .final-quote{padding:1rem 1.2rem;max-width:100%}
+  .final-quote blockquote{font-size:.9rem}
+
+  /* Orbs & Glows — smaller on mobile */
+  .orb{filter:blur(60px)}
+  .orb1,.orb2,.orb3,.orb4,.orb5,.orb6{width:60vw;height:60vw}
+  .bg-glow{width:70vw;height:70vw;filter:blur(80px)}
+
+  /* Navigation */
+  .nav-dots{right:.5rem;gap:5px}
+  .nav-dot{width:6px;height:6px;border-width:1.5px}
+  .nav-arrows{bottom:.7rem;gap:.5rem}
+  .nav-arrow{width:34px;height:34px;font-size:.85rem}
+  .slide-number{font-size:.65rem;top:.8rem;right:.8rem}
+
+  /* Loader */
+  .loader-ring{width:40px;height:40px}
+  .loader-text{font-size:.85rem}
+}
+
+@media(max-width:420px){
+  .slide{padding:1.2rem .8rem}
+  .slide-title{font-size:clamp(1.4rem,6.5vw,2rem)}
+  .slide-subtitle{font-size:.88rem}
+  .info-card,.char-card,.tl-node,.theme-col,.concl-item,.adapt-timeline{padding:1rem}
+  .styled-table th,.styled-table td{padding:.7rem .7rem;font-size:.78rem}
 }
