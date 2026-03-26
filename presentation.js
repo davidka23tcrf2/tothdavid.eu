@@ -6,15 +6,6 @@
     setTimeout(() => loader.classList.add('hidden'), 400);
   });
 
-  // ── ROTATE PROMPT ──────────────────────────────
-  const rotatePrompt = document.getElementById('rotatePrompt');
-  const rotateDismiss = document.getElementById('rotateDismiss');
-  if (rotateDismiss) {
-    rotateDismiss.addEventListener('click', () => {
-      rotatePrompt.classList.add('dismissed');
-    });
-  }
-
   // ── SLIDE ENGINE ───────────────────────────────
   const slides = document.querySelectorAll('.slide');
   const total = slides.length;

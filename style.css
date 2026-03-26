@@ -22,28 +22,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0f;color:#e8e8f0;o
 .loader-dots::after{content:'';animation:dots 1.4s steps(4,end) infinite}
 @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
 
-/* ── Rotate Prompt (mobile portrait only) ─────── */
-.rotate-prompt{
-  display:none;position:fixed;inset:0;z-index:10000;
-  background:rgba(10,10,15,.96);backdrop-filter:blur(20px);
-  align-items:center;justify-content:center;
-}
-.rotate-prompt.dismissed{display:none!important}
-.rotate-content{text-align:center;display:flex;flex-direction:column;align-items:center;gap:1.2rem}
-.rotate-icon{font-size:3.5rem;animation:rotatePhone 2s ease-in-out infinite}
-@keyframes rotatePhone{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
-.rotate-content p{font-size:1.1rem;color:#d4d4dc;font-weight:500;max-width:250px;line-height:1.5}
-.rotate-dismiss{
-  background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);
-  color:#a5b4fc;padding:8px 20px;border-radius:10px;font-size:.85rem;
-  font-family:inherit;cursor:pointer;transition:all .3s;
-}
-.rotate-dismiss:hover{background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5)}
-
-@media(max-width:768px) and (orientation:portrait){
-  .rotate-prompt:not(.dismissed){display:flex}
-}
-
 /* ══════════════════════════════════════════════════
    SLIDE ENGINE
    ══════════════════════════════════════════════════ */
