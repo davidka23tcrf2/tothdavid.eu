@@ -1,340 +1,232 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hu">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Coming Soon</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --bg-1: #fff8ef;
-            --bg-2: #f8e4d0;
-            --bg-3: #f3c9a9;
-            --accent-1: #d96c4e;
-            --accent-2: #ffb36b;
-            --accent-3: #b84f3d;
-            --text-main: #3b241d;
-            --text-soft: #6b4a3f;
-            --text-muted: #8b6a5f;
-        }
-
-        *::selection {
-            background: rgba(217, 108, 78, 0.2);
-        }
-
-        body {
-            position: relative;
-            min-height: 100dvh;   /* better on mobile */
-            overflow-x: hidden;   /* don't block vertical scroll */
-            display: flex;
-            flex-direction: column;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: var(--text-main);
-            background:
-                radial-gradient(circle at 15% 20%, rgba(255, 179, 107, 0.55), transparent 24%),
-                radial-gradient(circle at 85% 15%, rgba(217, 108, 78, 0.28), transparent 22%),
-                radial-gradient(circle at 75% 78%, rgba(184, 79, 61, 0.18), transparent 20%),
-                linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 45%, var(--bg-3) 100%);
-            isolation: isolate;
-        }
-        
-        body::before {
-            content: "";
-            position: fixed;
-            inset: -20%;
-            z-index: -3;
-            pointer-events: none;
-            background:
-                radial-gradient(circle at 20% 35%, rgba(255, 179, 107, 0.52), transparent 20%),
-                radial-gradient(circle at 80% 20%, rgba(217, 108, 78, 0.4), transparent 18%),
-                radial-gradient(circle at 65% 72%, rgba(255, 140, 92, 0.34), transparent 22%),
-                radial-gradient(circle at 10% 85%, rgba(184, 79, 61, 0.24), transparent 18%);
-            filter: blur(60px);
-            animation: backgroundFlow 9s ease-in-out infinite alternate;
-            transform-origin: center;
-        }
-
-        body::after {
-            content: "";
-            position: fixed;
-            inset: 0;
-            z-index: -2;
-            pointer-events: none;
-            opacity: 0.18;
-            background:
-                linear-gradient(rgba(255,255,255,0.25) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px);
-            background-size: 42px 42px;
-            mask-image: radial-gradient(circle at center, black 45%, transparent 90%);
-            -webkit-mask-image: radial-gradient(circle at center, black 45%, transparent 90%);
-            animation: gridDrift 12s linear infinite;
-        }
-
-        .background {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        .orb {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(95px);
-            opacity: 0.5;
-            animation: floatOrb 9s ease-in-out infinite;
-            will-change: transform;
-        }
-
-        .orb-1 {
-            width: 360px;
-            height: 360px;
-            top: 4%;
-            left: 4%;
-            background: rgba(255, 179, 107, 0.42);
-            animation-delay: 0s;
-        }
-
-        .orb-2 {
-            width: 300px;
-            height: 300px;
-            top: 8%;
-            right: 8%;
-            background: rgba(217, 108, 78, 0.34);
-            animation-delay: -2s;
-        }
-
-        .orb-3 {
-            width: 420px;
-            height: 420px;
-            bottom: -8%;
-            left: 16%;
-            background: rgba(255, 150, 120, 0.3);
-            animation-delay: -4s;
-        }
-
-        .orb-4 {
-            width: 320px;
-            height: 320px;
-            bottom: 4%;
-            right: 10%;
-            background: rgba(184, 79, 61, 0.26);
-            animation-delay: -1s;
-        }
-
-        main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 2rem;
-            z-index: 1;
-        }
-
-        .content {
-            width: min(100%, 900px);
-        }
-
-        h1 {
-            font-family: Georgia, "Times New Roman", Times, serif;
-            font-size: clamp(2.2rem, 6vw, 5.5rem);
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            margin-bottom: 1rem;
-            color: var(--text-main);
-            text-transform: uppercase;
-            white-space: nowrap;
-            line-height: 1;
-            text-shadow: 0 3px 12px rgba(255, 255, 255, 0.22);
-        }
-
-        p {
-            font-size: 1.1rem;
-            line-height: 1.6;
-            color: var(--text-soft);
-            margin-bottom: 2.25rem;
-        }
-
-        .social-links {
-            display: flex;
-            justify-content: center;
-            gap: 1.25rem;
-        }
-
-        .social-icon {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
-            text-decoration: none;
-            color: var(--text-main);
-            background: rgba(255, 255, 255, 0.22);
-            border: 1px solid rgba(255, 255, 255, 0.45);
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 30px rgba(121, 70, 52, 0.08);
-        }
-
-        .social-icon svg {
-            width: 22px;
-            height: 22px;
-            fill: currentColor;
-        }
-
-        .social-icon:hover {
-            transform: translateY(-4px) scale(1.03);
-            background: rgba(255, 255, 255, 0.45);
-        }
-
-        .social-icon.ig:hover {
-            color: #c75b47;
-            box-shadow: 0 0 24px rgba(199, 91, 71, 0.22);
-        }
-
-        .social-icon.fb:hover {
-            color: #9c5f46;
-            box-shadow: 0 0 24px rgba(156, 95, 70, 0.2);
-        }
-
-        .social-icon.gh:hover {
-            color: #5a3d33;
-            box-shadow: 0 0 24px rgba(90, 61, 51, 0.18);
-        }
-
-        footer {
-            padding: 1.5rem;
-            text-align: center;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            z-index: 1;
-            border-top: 1px solid rgba(255, 255, 255, 0.35);
-            background: rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(10px);
-        }
-
-        @keyframes backgroundFlow {
-            0% {
-                transform: translate3d(-6%, -4%, 0) scale(1) rotate(0deg);
-            }
-            25% {
-                transform: translate3d(5%, -2%, 0) scale(1.08) rotate(4deg);
-            }
-            50% {
-                transform: translate3d(8%, 5%, 0) scale(1.14) rotate(-4deg);
-            }
-            75% {
-                transform: translate3d(-4%, 8%, 0) scale(1.08) rotate(3deg);
-            }
-            100% {
-                transform: translate3d(-8%, 4%, 0) scale(1.12) rotate(-3deg);
-            }
-        }
-
-        @keyframes floatOrb {
-            0% {
-                transform: translate(0, 0) scale(1);
-            }
-            20% {
-                transform: translate(40px, -35px) scale(1.12);
-            }
-            40% {
-                transform: translate(-30px, 30px) scale(0.92);
-            }
-            60% {
-                transform: translate(55px, 18px) scale(1.08);
-            }
-            80% {
-                transform: translate(-22px, -42px) scale(0.96);
-            }
-            100% {
-                transform: translate(0, 0) scale(1);
-            }
-        }
-
-        @keyframes gridDrift {
-            0% {
-                transform: translate3d(0, 0, 0);
-            }
-            50% {
-                transform: translate3d(-12px, -8px, 0);
-            }
-            100% {
-                transform: translate3d(0, 0, 0);
-            }
-        }
-
-        @media (max-width: 640px) {
-            h1 {
-                font-size: clamp(1.6rem, 8vw, 3rem);
-                letter-spacing: 0.05em;
-            }
-
-            p {
-                font-size: 1rem;
-            }
-
-            .social-links {
-                gap: 0.9rem;
-            }
-
-            .social-icon {
-                width: 48px;
-                height: 48px;
-            }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            body::before,
-            body::after,
-            .orb {
-                animation: none;
-            }
-
-            .social-icon {
-                transition: none;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dorottya — Szakmai Prezentáció</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="background" aria-hidden="true">
-        <span class="orb orb-1"></span>
-        <span class="orb orb-2"></span>
-        <span class="orb orb-3"></span>
-        <span class="orb orb-4"></span>
+
+  <!-- LOADER -->
+  <div class="loader" id="loader">
+    <div class="loader-ring"></div>
+    <div class="loader-text">Betöltés<span class="loader-dots"></span></div>
+  </div>
+
+  <div class="progress-bar" id="progressBar"></div>
+  <div class="particles" id="particles"></div>
+
+  <div class="deck" id="deck">
+
+    <!-- 1: TITLE -->
+    <div class="slide active">
+      <div class="bg-glow"></div>
+      <div class="orb orb1"></div>
+      <div class="orb orb2"></div>
+      <div class="slide-inner center-slide">
+        <div class="title-badge anim-up">IRODALOMTÖRTÉNETI ELEMZÉS</div>
+        <h1 class="slide-title anim-up d2">Csokonai Vitéz Mihály<br><span class="gradient-text">DOROTTYA</span></h1>
+        <p class="slide-subtitle anim-up d3" style="border:none;">Vagyis a dámák diadala a Fársángon</p>
+        <div class="meta-row anim-up d4">
+          <span class="meta-chip">📖 Vígeposz · 4 könyv</span>
+          <span class="meta-chip">📅 1798–1799</span>
+          <span class="meta-chip">📍 Kaposvár</span>
+        </div>
+      </div>
+      <span class="slide-number">01 / 08</span>
     </div>
 
-    <main>
-        <div class="content">
-            <h1>COMING SOON</h1>
-            <p>My portfolio is currently under construction.</p>
-
-            <div class="social-links">
-                <a href="https://www.instagram.com/davidka23tcrf" class="social-icon ig" aria-label="Instagram">
-                    <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm3.98-10.822a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                </a>
-                <a href="https://www.facebook.com/profile.php?id=100031063698968" class="social-icon fb" aria-label="Facebook">
-                    <svg viewBox="0 0 24 24"><path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/></svg>
-                </a>
-                <a href="https://github.com/davidka23tcrf2/" class="social-icon gh" aria-label="GitHub">
-                    <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                </a>
-            </div>
+    <!-- 2: KONTEXTUS -->
+    <div class="slide">
+      <div class="bg-glow g2"></div>
+      <div class="orb orb3"></div>
+      <div class="slide-inner center-slide">
+        <h1 class="slide-title anim-up">Keletkezés & Kontextus</h1>
+        <p class="slide-subtitle anim-up d2" style="border:none; max-width:650px;">A mű a somogyi köznemesség farsangi világának közvetlen megfigyeléséből született.</p>
+        <div class="two-col anim-up d3">
+          <div class="info-card float-card">
+            <div class="card-icon">🏛️</div>
+            <h3>Történeti háttér</h3>
+            <p>1795 utáni feszült átmenet — a vidéki nemesség feudális kiváltságai és a nyugati kulturális hatások ütközése.</p>
+          </div>
+          <div class="info-card float-card fd2">
+            <div class="card-icon">✍️</div>
+            <h3>A költő helyzete</h3>
+            <p>Debrecenből kicsapva, Somogyban barangol. Testközelből tanulmányozza a farsangi bálokat és a házasságszervezést.</p>
+          </div>
         </div>
-    </main>
+      </div>
+      <span class="slide-number">02 / 08</span>
+    </div>
 
-    <footer>
-        &copy; 2026 Dávid Tóth. All rights reserved.
-    </footer>
+    <!-- 3: DRÁMAI SZERKEZET -->
+    <div class="slide">
+      <div class="bg-glow g3"></div>
+      <div class="slide-inner center-slide">
+        <h1 class="slide-title anim-up">Drámai Szerkezet</h1>
+        <p class="slide-subtitle anim-up d2" style="border:none;">24 óra, 4 könyv — tér, idő és cselekmény egységében</p>
+        <div class="timeline anim-up d3">
+          <div class="tl-node n1 float-card">
+            <span class="tl-time">I. Ebédig</span>
+            <p class="tl-desc">Carnevál megérkezik. A mátrikula kirekeszti Dorottyát.</p>
+          </div>
+          <div class="tl-node n2 float-card fd2">
+            <span class="tl-time">II. Estéig</span>
+            <p class="tl-desc">Bál és megaláztatás. Áldozat bemutatása Ámornak.</p>
+          </div>
+          <div class="tl-node n3 float-card fd3">
+            <span class="tl-time">III. Éjfélig</span>
+            <p class="tl-desc">Amazongárda. Eris fánk alakban. Nyílt háború.</p>
+          </div>
+          <div class="tl-node n4 float-card fd4">
+            <span class="tl-time">IV. Hajnalig</span>
+            <p class="tl-desc">Mátrikula elégetése. Vénusz csodája. Békekötés.</p>
+          </div>
+        </div>
+      </div>
+      <span class="slide-number">03 / 08</span>
+    </div>
+
+    <!-- 4: KARAKTERHÁLÓ -->
+    <div class="slide">
+      <div class="bg-glow g4"></div>
+      <div class="slide-inner center-slide">
+        <h1 class="slide-title anim-up">Karakterháló</h1>
+        <p class="slide-subtitle anim-up d2" style="border:none;">A vidéki köznemesség tipológiája</p>
+        <div class="char-grid anim-up d3">
+          <div class="char-card cc-pink float-card">
+            <h3>Dorottya <span class="char-tag">Áldozat → Fúria</span></h3>
+            <p>65 éves „aggszűz" — frusztrációja teszi az amazongárda marsalljává.</p>
+          </div>
+          <div class="char-card cc-cyan float-card fd2">
+            <h3>Opor <span class="char-tag">Patriarcha</span></h3>
+            <p>A nőtlen férfiak vezére — diplomáciával old meg mindent.</p>
+          </div>
+          <div class="char-card cc-pink float-card fd3">
+            <h3>Orsolya & Rebeka <span class="char-tag">Stratégiák</span></h3>
+            <p>Orsolya: 5 férj után is keres. Rebeka: a taktikai vezető.</p>
+          </div>
+          <div class="char-card cc-amber float-card fd4">
+            <h3>Carnevál & Eris <span class="char-tag">Machinák</span></h3>
+            <p>Carnevál a rendet őrzi. Eris fánkként szítja a harcot.</p>
+          </div>
+        </div>
+      </div>
+      <span class="slide-number">04 / 08</span>
+    </div>
+
+    <!-- 5: EPOSZI KELLÉKEK -->
+    <div class="slide">
+      <div class="bg-glow g5"></div>
+      <div class="slide-inner center-slide">
+        <h1 class="slide-title anim-up">A Vígeposz Működése</h1>
+        <p class="slide-subtitle anim-up d2" style="border:none;">Eposzi kellékek parodisztikus dekonstrukciója</p>
+        <table class="styled-table anim-up d3">
+          <thead><tr><th>Kellék</th><th>Hagyományos</th><th>Csokonai</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Propozíció</strong></td><td>Magasztos tettek megnevezése</td><td>„Vénlányok bajos állapotjának" megéneklése</td></tr>
+            <tr><td><strong>Invokáció</strong></td><td>Fohász a múzsákhoz</td><td>Fohász a „jó borral telt butéliához"</td></tr>
+            <tr><td><strong>Enumeráció</strong></td><td>Dicső hadseregek</td><td>Somogyi gavallérok báli leltára</td></tr>
+            <tr><td><strong>In medias res</strong></td><td>Konfliktus tetőpontjáról</td><td>Krónikás lassúsággal épített expozíció</td></tr>
+            <tr><td><strong>Deus ex machina</strong></td><td>Istenek beavatkozása</td><td>Eris fánk alakjában; Vénusz hajnali csodája</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <span class="slide-number">05 / 08</span>
+    </div>
+
+    <!-- 6: ESZMETÖRTÉNET -->
+    <div class="slide">
+      <div class="bg-glow g6"></div>
+      <div class="slide-inner center-slide">
+        <h1 class="slide-title anim-up">Eszmetörténeti Rétegek</h1>
+        <p class="slide-subtitle anim-up d2" style="border:none;">A nevetés álcája mögött</p>
+        <div class="theme-box anim-up d3">
+          <div class="theme-col tc-amber float-card">
+            <h3>Nemi Elidegenedés</h3>
+            <p>A mátrikula elégetése proto-feminista gesztus — de a cél csupán a házasságba integrálódás.</p>
+          </div>
+          <div class="theme-col tc-indigo float-card fd2">
+            <h3>Nemzeti vs. Idegen</h3>
+            <p>Bordács: „Csak a magyarnak kell más nemzet módia?" — figyelmeztetés az asszimilációra.</p>
+          </div>
+          <div class="theme-col tc-rose float-card fd3">
+            <h3>Nyelvteremtés</h3>
+            <p>Felező tizenkettes, lábjegyzetapparátus — a nemzeti kultúra tudatos támogatása.</p>
+          </div>
+        </div>
+      </div>
+      <span class="slide-number">06 / 08</span>
+    </div>
+
+    <!-- 7: UTÓÉLET -->
+    <div class="slide">
+      <div class="bg-glow g7"></div>
+      <div class="slide-inner center-slide">
+        <h1 class="slide-title anim-up">Utóélet & Adaptációk</h1>
+        <p class="slide-subtitle anim-up d2" style="border:none;">Két évszázad irodalmi és színpadi hatás</p>
+        <div class="two-col anim-up d3">
+          <div class="info-card float-card">
+            <div class="card-icon">📚</div>
+            <h3>Irodalmi Hatás</h3>
+            <p><strong style="color:#c4b5fd;">Petőfi</strong> — <em>A helység kalapácsa</em> egyenes folytatása.<br><strong style="color:#c4b5fd;">Arany</strong> — <em>Vörös Rébék</em> boszorkányos karaktere.</p>
+          </div>
+          <div class="adapt-timeline float-card fd2">
+            <h3>🎭 Idővonal</h3>
+            <div class="at-item"><span class="at-year">1804</span><span class="at-text">Első kiadás</span></div>
+            <div class="at-item"><span class="at-year">1929</span><span class="at-text">Kacsóh — daljáték, Szeged</span></div>
+            <div class="at-item"><span class="at-year">1944</span><span class="at-text">Tóth Dénes — balett, Operaház</span></div>
+            <div class="at-item"><span class="at-year">2023</span><span class="at-text">Debreceni Csokonai Színház</span></div>
+            <div class="at-item hl"><span class="at-year">2026</span><span class="at-text">Tévéfilm — Gobbi Hilda</span></div>
+          </div>
+        </div>
+      </div>
+      <span class="slide-number">07 / 08</span>
+    </div>
+
+    <!-- 8: KONKLÚZIÓ -->
+    <div class="slide">
+      <div class="bg-glow g8"></div>
+      <div class="orb orb1"></div>
+      <div class="orb orb2"></div>
+      <div class="slide-inner center-slide">
+        <h1 class="slide-title anim-up"><span class="gradient-text">Konklúzió</span></h1>
+        <div class="conclusion-grid anim-up d2">
+          <div class="concl-item float-card">
+            <div class="concl-icon">🎭</div>
+            <h3>Műfajteremtés</h3>
+            <p>A magyar vígeposz csúcsteljesítménye.</p>
+          </div>
+          <div class="concl-item float-card fd2">
+            <div class="concl-icon">🔍</div>
+            <h3>Társadalomkritika</h3>
+            <p>Kíméletlen, de empatikus szociológiai látlelet.</p>
+          </div>
+          <div class="concl-item float-card fd3">
+            <div class="concl-icon">🌍</div>
+            <h3>Enciklopédia</h3>
+            <p>Kultúrtörténeti forrás és nyelvújítási eszköz.</p>
+          </div>
+        </div>
+        <div class="final-quote anim-up d3">
+          <blockquote>„A nevetés katartikus erejével rögzítette a modernizáció küszöbén álló magyar vidék utolsó, rokokóba öltözött pillanatait."</blockquote>
+        </div>
+      </div>
+      <span class="slide-number">08 / 08</span>
+    </div>
+
+  </div>
+
+  <nav class="nav-dots" id="navDots"></nav>
+  <div class="nav-arrows">
+    <button class="nav-arrow" id="prevBtn" aria-label="Előző">←</button>
+    <button class="nav-arrow" id="nextBtn" aria-label="Következő">→</button>
+  </div>
+
+  <script src="presentation.js"></script>
 </body>
 </html>
