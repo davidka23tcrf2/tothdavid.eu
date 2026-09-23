@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+<title>Benford check · Dávid Tóth</title>
+<meta name="description" content="Paste numbers or drop a file and see how closely their leading digits follow Benford's law. Shows a chart, conformity stats and an estimate of how likely the data is made up." />
+<meta name="theme-color" content="#0a0806" />
+<link rel="canonical" href="https://tothdavid.eu/benford/" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Benford check" />
+<meta property="og:description" content="Do your numbers follow Benford's law? Paste or upload data and find out." />
+<meta property="og:url" content="https://tothdavid.eu/benford/" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="benford.css" />
+</head>
+
+<body>
+
+<header class="masthead">
+  <a class="home" href="/">Dávid Tóth</a>
+  <h1 class="title">Benford check</h1>
+  <p class="lede">
+    In most real-world data, about 30% of numbers start with a&nbsp;1 and fewer than 5% start with a&nbsp;9.
+    Invented numbers usually don't. Give this some data and it'll tell you how well it fits.
+  </p>
+</header>
+
+<main class="layout">
+
+  <!-- ============ input ============ -->
+  <section class="panel input" aria-labelledby="input-h">
+    <h2 id="input-h" class="panel-h">Your numbers</h2>
+
+    <div class="tabs" role="tablist" aria-label="Input method">
+      <button class="tab is-active" type="button" role="tab" id="tab-paste" aria-controls="pane-paste" aria-selected="true">Type / paste</button>
+      <button class="tab" type="button" role="tab" id="tab-file" aria-controls="pane-file" aria-selected="false" tabindex="-1">Upload file</button>
+    </div>
+
+    <div class="pane" id="pane-paste" role="tabpanel" aria-labelledby="tab-paste">
+      <label class="sr" for="numbers">Numbers</label>
+      <textarea id="numbers" spellcheck="false" autocomplete="off"
+        placeholder="Paste anything with numbers in it: a column from a spreadsheet, a list, a bank statement, a CSV…&#10;&#10;1,204.50&#10;38710&#10;2,114,093&#10;0.0071&#10;…"></textarea>
+      <div class="samples">
+        <div class="samples-head">
+          <span class="samples-label">Or try a sample of</span>
+          <select class="size" id="sample-size" aria-label="Sample size">
+            <option value="300">300</option>
+            <option value="1000">1,000</option>
+            <option value="2500" selected>2,500</option>
+            <option value="5000">5,000</option>
+            <option value="20000">20,000</option>
+          </select>
+          <span class="samples-label">numbers:</span>
+        </div>
+        <button class="chip" type="button" data-sample="invoices">Invoice amounts</button>
+        <button class="chip" type="button" data-sample="fib">Fibonacci</button>
+        <button class="chip" type="button" data-sample="messy">Messy real data</button>
+        <button class="chip" type="button" data-sample="invented">Invented numbers</button>
+        <button class="chip" type="button" data-sample="limit">Just under a limit</button>
+        <button class="chip ghost" type="button" data-sample="clear">Clear</button>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-file" role="tabpanel" aria-labelledby="tab-file" hidden>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".csv,.tsv,.txt,.json,.xlsx,.xls,.ods,text/*" />
+        <span class="drop-big">Drop a file here</span>
+        <span class="drop-small">or click to choose · CSV, TSV, TXT, JSON, XLSX, ODS</span>
+        <span class="drop-note">Read in your browser. Nothing is uploaded anywhere.</span>
+      </label>
+      <p class="file-status" id="file-status" aria-live="polite"></p>
+    </div>
+
+    <fieldset class="columns" id="columns" hidden>
+      <legend>Columns to include</legend>
+      <div class="col-list" id="col-list"></div>
+      <p class="col-note">IDs, dates, years and codes aren't Benford data, so they start switched off.</p>
+    </fieldset>
+
+    <fieldset class="opts">
+      <legend>Filters</legend>
+      <div class="opt-row">
+        <label class="field">
+          <span>Minimum value</span>
+          <input type="number" id="opt-min" min="0" step="any" inputmode="decimal" placeholder="none" />
+        </label>
+        <label class="field">
+          <span>Include</span>
+          <select id="opt-sign">
+            <option value="all">All numbers</option>
+            <option value="pos">Positive only</option>
+            <option value="neg">Negative only</option>
+          </select>
+        </label>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="opt-unique" />
+        <span>Count each distinct value once</span>
+      </label>
+    </fieldset>
+
+    <fieldset class="opts">
+      <legend>How strict the fake check is</legend>
+      <div class="seg" role="radiogroup" aria-label="Strictness">
+        <label><input type="radio" name="strict" value="lenient" /><span>Lenient</span></label>
+        <label><input type="radio" name="strict" value="normal" checked /><span>Normal</span></label>
+        <label><input type="radio" name="strict" value="strict" /><span>Strict</span></label>
+      </div>
+      <p class="col-note" id="strict-note"></p>
+    </fieldset>
+
+    <p class="parsed" id="parsed" aria-live="polite"></p>
+  </section>
+
+  <!-- ============ results ============ -->
+  <section class="panel results" id="results" aria-labelledby="results-h" aria-live="polite">
+    <h2 id="results-h" class="panel-h">How they fit</h2>
+
+    <div class="empty" id="empty">
+      <p id="empty-main">Waiting for numbers.</p>
+      <p class="muted" id="empty-sub">Pick a sample on the left to see what a good and a bad fit look like. “Messy real data” is the one to try with the strictness setting.</p>
+    </div>
+
+    <div class="report" id="report" hidden>
+
+      <div class="verdict">
+        <div class="verdict-num"><span id="fake-pct">–</span><span class="pct">%</span></div>
+        <div class="verdict-text">
+          <p class="verdict-label" id="verdict-label"></p>
+          <p class="verdict-sub" id="verdict-sub">estimated chance the leading digits were made up or manipulated</p>
+        </div>
+        <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
+      </div>
+
+      <p class="tests-h" id="tests-h">Chance made up, by test. Pick one for the details.</p>
+      <div class="tests" role="radiogroup" aria-labelledby="tests-h">
+        <label class="test"><input type="radio" name="test" value="first" checked /><span class="test-box"><span class="test-name">First digit</span><span class="test-val" id="tv-first">–</span></span></label>
+        <label class="test"><input type="radio" name="test" value="second" /><span class="test-box"><span class="test-name">Second digit</span><span class="test-val" id="tv-second">–</span></span></label>
+        <label class="test"><input type="radio" name="test" value="firstTwo" /><span class="test-box"><span class="test-name">First two digits</span><span class="test-val" id="tv-firstTwo">–</span></span></label>
+        <label class="test"><input type="radio" name="test" value="lastTwo" /><span class="test-box"><span class="test-name">Last two digits</span><span class="test-val" id="tv-lastTwo">–</span></span></label>
+      </div>
+      <p class="test-note" id="test-note"></p>
+
+      <ul class="warnings" id="warnings"></ul>
+
+      <p class="detail-empty" id="detail-empty" hidden></p>
+      <div id="detail">
+      <figure class="chart-wrap">
+        <figcaption class="legend">
+          <span class="key key-obs">Your data</span>
+          <span class="key key-exp" id="key-exp">Benford's law</span>
+          <span class="key key-band">Normal range for this many numbers</span>
+        </figcaption>
+        <div class="chart" id="chart"></div>
+        <div class="tip" id="tip" hidden></div>
+      </figure>
+
+      <dl class="stats">
+        <div class="stat">
+          <dt>Numbers</dt>
+          <dd id="s-n">–</dd>
+        </div>
+        <div class="stat">
+          <dt>Correlation</dt>
+          <dd id="s-r">–</dd>
+          <p class="stat-note" id="s-r-note"></p>
+        </div>
+        <div class="stat">
+          <dt>Mean abs. deviation</dt>
+          <dd id="s-mad">–</dd>
+          <p class="stat-note" id="s-mad-note"></p>
+        </div>
+        <div class="stat">
+          <dt>Chi-square p</dt>
+          <dd id="s-p">–</dd>
+          <p class="stat-note" id="s-p-note"></p>
+        </div>
+      </dl>
+
+      <p class="table-note" id="table-note" hidden></p>
+      <div class="table-wrap">
+        <table class="digits">
+          <caption class="sr">Leading digit counts compared to Benford's law</caption>
+          <thead>
+            <tr><th scope="col" id="th-bin">Digit</th><th scope="col">Count</th><th scope="col">Yours</th><th scope="col" id="th-exp">Benford</th><th scope="col">Diff (pts)</th><th scope="col">z</th></tr>
+          </thead>
+          <tbody id="digit-rows"></tbody>
+        </table>
+      </div>
+
+      <div class="export">
+        <button class="chip" type="button" id="dl-csv">Download CSV</button>
+        <button class="chip" type="button" id="copy-sum">Copy summary</button>
+        <span class="export-status" id="export-status" aria-live="polite"></span>
+      </div>
+      </div>
+
+      <details class="about">
+        <summary>How this works</summary>
+        <p>
+          Every non-zero number's first significant digit is counted (0.0071 counts as a 7). Benford's law says digit
+          <i>d</i> should lead with probability log<sub>10</sub>(1 + 1/<i>d</i>).
+        </p>
+        <p>
+          The <b>second digit</b> and <b>first two digits</b> tests follow from the same law and are the next steps in a forensic audit:
+          the first-two test in particular picks out single amounts that were used too often.
+          The <b>last two digits</b> test isn't Benford at all. For numbers with three or more digits the endings should be spread evenly,
+          so a pile-up on 00, 50 or 99 usually means rounding, estimates or invention.
+        </p>
+        <p>
+          <b>Correlation</b> is Pearson's r between your digit shares and Benford's.
+          <b>MAD</b> is the average gap per digit, judged with Nigrini's thresholds
+          (under 0.006 close, 0.012 acceptable, 0.015 marginal, above that nonconforming).
+          <b>Chi-square</b> asks whether the gaps are bigger than chance, but with thousands of rows it flags even harmless wobbles, which is why the headline number doesn't lean on it.
+        </p>
+        <p>
+          <b>The headline number</b> is the most suspicious of the four tests that had enough numbers, because each test only sees part of the picture:
+          someone who invents amounts with random later digits passes the second-digit and last-two tests but fails the first-digit one, and
+          someone who copies real leading digits but rounds everything fails the last-two test.
+        </p>
+        <p>
+          <b>Each test's estimate</b> is a Bayesian comparison of two explanations: “real data, Benford-shaped with the usual real-world wobble”
+          versus “a noticeably different pattern, like the ones people produce when they make numbers up”. It starts at 50/50 and updates on your counts,
+          so small samples stay near the middle and large ones become decisive.
+        </p>
+        <p>
+          A bad fit isn't proof of fraud. Benford only applies to data that spans several orders of magnitude and isn't capped or assigned:
+          invoice totals, populations, river lengths, stock volumes. Ages, prices ending in .99, phone numbers and lottery draws won't fit and aren't meant to.
+        </p>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <small>&copy; 2026 · runs entirely in your browser</small>
+</footer>
+
+<script src="benford.js"></script>
+</body>
+</html>
