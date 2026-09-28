@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+
+<title data-i18n="docTitle">Tíz szám</title>
+<meta name="theme-color" content="#0a0806" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="/szamok/szamok.css" />
+</head>
+
+<body class="collect">
+
+<main class="sheet">
+  <div class="topbar">
+    <span></span>
+    <div class="lang" role="group" aria-label="Nyelv / Language">
+      <button type="button" data-lang="hu" aria-pressed="true">HU</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+
+  <h1 class="title" data-i18n="title">Tíz szám</h1>
+  <p class="lede" data-i18n="lede">Írj be 10 különböző pozitív egész számot 1 és 9999 között. Találd ki őket fejben: ne használj véletlenszám-generátort, és ne nézz meg hozzá semmit.</p>
+
+  <form id="form" novalidate>
+    <fieldset class="nums">
+      <legend class="sr" data-i18n="numsLegend">A tíz szám</legend>
+      <div class="num-grid" id="num-grid"></div>
+    </fieldset>
+
+    <label class="field name-field">
+      <span data-i18n="nameLabel">Neved (nem kötelező)</span>
+      <input type="text" id="name" maxlength="40" autocomplete="off" />
+    </label>
+
+    <!-- people never see this; bots fill it in -->
+    <label class="hp" aria-hidden="true">Website <input type="text" name="website" id="website" tabindex="-1" autocomplete="off" /></label>
+
+    <div class="actions">
+      <button class="btn" type="submit" id="send" data-i18n="send">Beküldés</button>
+      <p class="msg" id="msg" role="status" aria-live="polite"></p>
+    </div>
+  </form>
+
+  <div class="done" id="done" hidden>
+    <p class="done-big" data-i18n="doneBig">Köszönjük!</p>
+    <p id="done-text" data-i18n="doneText">A számaidat megkaptuk.</p>
+  </div>
+</main>
+
+<script src="/lang.js"></script>
+<script src="/szamok/szamok.js"></script>
+</body>
+</html>

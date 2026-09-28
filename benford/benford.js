@@ -1,35 +1,58 @@
 /* ============================================================
    tothdavid.eu / benford
    Everything happens client-side. No data leaves the browser.
+
+   The page reports how far the digits are from the expected
+   distribution. It never claims to know whether data was faked:
+   a deviation is a reason to look closer, not proof of anything.
+   Copy lives in i18n.js; t() picks the current language.
    ============================================================ */
 
 (() => {
   "use strict";
 
   const $ = (id) => document.getElementById(id);
-  // Strictness = the pair of Dirichlet concentrations (per 9 bins) behind the
-  // fake estimate: [genuine, different]. The genuine one sets how much
-  // real-world wobble is tolerated; the gap between the two sets where a
-  // deviation starts to count. Tuned on simulated data so that, on large
-  // samples, first-digit MAD starts to get flagged around 0.020 / 0.013 / 0.009,
-  // and genuine data trips "normal" in at most ~1 run in 20 at n = 100
-  // (none from n = 300).
-  const STRICTNESS = {
-    lenient: { kappa: [300, 25], note: "Lenient: the share of 1s can drift about ±5 points before it counts against the data. Only large deviations (MAD above roughly 0.020) get flagged. Good for messy business data." },
-    normal: { kappa: [800, 40], note: "Normal: the share of 1s can drift about ±3 points. Deviations start counting around MAD 0.013, in line with Nigrini's cut-off for nonconforming data." },
-    strict: { kappa: [1800, 90], note: "Strict: the share of 1s can drift only about ±2 points. Anything past MAD 0.009 or so counts, so even real data that's a bit off gets flagged." },
-  };
+  const t = (key, vars) => window.I18N.t(key, vars);
 
   const MAX_FILE_BYTES = 50 * 1024 * 1024;
   const XLSX_SRC = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
 
-  const fmtInt = new Intl.NumberFormat("en-US");
-  const pct = (x, dp = 1) => (x * 100).toFixed(dp) + "%";
+  // numbers on screen follow the page language (2,500 / 2 500, 30.1% / 30,1%)
+  const loc = () => window.I18N.locale;
+  const fmtInt = (x) => new Intl.NumberFormat(loc()).format(x);
+  const dec = (x, dp) => new Intl.NumberFormat(loc(), { minimumFractionDigits: dp, maximumFractionDigits: dp, useGrouping: false }).format(x);
+  const pct = (x, dp = 1) => dec(x * 100, dp) + "%";
+  const fmtNum = (x) => new Intl.NumberFormat(loc(), { maximumFractionDigits: 6 }).format(x);
+
+  /* ---------------- number formats ---------------- */
+
+  // "dot":   1,234.56   (comma or space groups, dot decimal)
+  // "comma": 1 234,56 / 1.234,56   (space or dot groups, comma decimal)
+  const FORMATS = { dot: "1,234.56", comma: "1 234,56" };
+  const GROUP_SPACE = "[ \\u00a0\\u202f]";
+
+  // Decide the convention from the text itself. A comma followed by one or
+  // two digits (and not another comma, as in a 1,2,3 list) is a decimal
+  // comma; lines holding one space-grouped number (1 234) are the Hungarian
+  // way of writing thousands.
+  function detectFormat(strings) {
+    let comma = 0, dot = 0;
+    for (const s of strings) {
+      if (typeof s !== "string" || !/\d/.test(s)) continue;
+      comma += (s.match(/(?:^|[^\d,])\d+,\d{1,2}(?![\d,])/g) || []).length;
+      comma += (s.match(/\d{1,3}(?:\.\d{3})+,\d/g) || []).length;
+      comma += (s.match(new RegExp("^\\s*[-−]?\\d{1,3}(?:" + GROUP_SPACE + "\\d{3})+\\s*$", "gm")) || []).length;
+      dot += (s.match(/(?:^|[^\d.])\d+\.\d{1,2}(?![\d.])/g) || []).length;
+      dot += (s.match(/\d{1,3}(?:,\d{3})+\.\d/g) || []).length;
+    }
+    return comma > dot ? "comma" : "dot";
+  }
 
   /* ---------------- number parsing ---------------- */
 
-  // Returns { d, v } (leading digit, absolute value), { zero: true }, or null.
-  function numInfo(raw) {
+  // Returns { d, v, neg, sig } (leading digit, absolute value, sign,
+  // significant digits as written), { zero: true }, or null.
+  function numInfo(raw, fmt) {
     if (raw == null) return null;
     if (typeof raw === "number") {
       if (!Number.isFinite(raw)) return null;
@@ -64,10 +87,24 @@
     const exp = m[2] ? +m[2] : 0;
     const hasC = mant.includes(","), hasD = mant.includes(".");
 
-    if (hasC && hasD) {
-      const dec = mant.lastIndexOf(",") > mant.lastIndexOf(".") ? "," : ".";
-      const grp = dec === "," ? "." : ",";
-      const [intPart, fracPart, ...rest] = mant.split(dec);
+    if (fmt === "comma") {
+      if (hasC) {
+        const parts = mant.split(",");
+        if (parts.length > 2) return null;
+        let [intPart, frac] = parts;
+        if (intPart.includes(".")) {
+          if (!/^\d{1,3}(\.\d{3})+$/.test(intPart)) return null;
+          intPart = intPart.replace(/\./g, "");
+        }
+        mant = (intPart || "0") + "." + frac;
+      } else if (hasD) {
+        if (/^\d{1,3}(\.\d{3})+$/.test(mant)) mant = mant.replace(/\./g, "");
+        else if ((mant.match(/\./g) || []).length > 1) return null;
+      }
+    } else if (hasC && hasD) {
+      const decSep = mant.lastIndexOf(",") > mant.lastIndexOf(".") ? "," : ".";
+      const grp = decSep === "," ? "." : ",";
+      const [intPart, fracPart, ...rest] = mant.split(decSep);
       if (rest.length || /[.,]/.test(fracPart ?? "")) return null;
       if (!new RegExp("^\\d{1,3}(\\" + grp + "\\d{3})*$").test(intPart)) return null;
       mant = intPart.split(grp).join("") + "." + fracPart;
@@ -76,8 +113,7 @@
       else if ((mant.match(/,/g) || []).length === 1) mant = mant.replace(",", ".");
       else return null;
     } else if (hasD) {
-      const n = (mant.match(/\./g) || []).length;
-      if (n > 1) {
+      if ((mant.match(/\./g) || []).length > 1) {
         if (/^\d{1,3}(\.\d{3})+$/.test(mant)) mant = mant.replace(/\./g, "");
         else return null; // 01.05.2024 and friends
       }
@@ -91,11 +127,19 @@
     return { d: +first[0], v: Number.isFinite(v) && v > 0 ? v : Number.MAX_VALUE, neg, sig, fromText: true };
   }
 
-  const DATE_RE = /\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}(?:[T ]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?\b|\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b|\b\d{1,2}:\d{2}(?::\d{2})?\b/g;
+  const DATE_RE = new RegExp([
+    "\\b\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}(?:[T ]\\d{1,2}:\\d{2}(?::\\d{2}(?:\\.\\d+)?)?(?:Z|[+-]\\d{2}:?\\d{2})?)?\\b",
+    "\\b\\d{4}\\.\\s?\\d{1,2}\\.\\s?\\d{1,2}\\.?", // 2024. 03. 05.
+    "\\b\\d{1,2}[-/.]\\d{1,2}[-/.]\\d{2,4}\\b",
+    "\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\b",
+  ].join("|"), "g");
 
-  // Free text: split on obvious separators, try each token whole, then
-  // fall back to pulling number-looking runs out of it.
-  function extractFree(text) {
+  // Comma-decimal text can't be split on spaces (1 234,56 is one number),
+  // so pull whole numbers out with a pattern instead.
+  const COMMA_NUM = new RegExp(
+    "[-−]?(?:\\d{1,3}(?:" + GROUP_SPACE + "\\d{3})+|\\d{1,3}(?:\\.\\d{3})+|\\d+)(?:,\\d+)?(?:\\.\\d+)?", "g");
+
+  function extractFree(text, fmt) {
     const out = [];
     let zeros = 0;
     const push = (info) => {
@@ -106,13 +150,20 @@
     };
 
     const cleaned = text.replace(DATE_RE, " ");
+    if (fmt === "comma") {
+      for (const tok of cleaned.match(COMMA_NUM) || []) push(numInfo(tok, "comma"));
+      return { values: out, zeros };
+    }
+
+    // Dot-decimal text: split on obvious separators, try each token whole,
+    // then fall back to pulling number-looking runs out of it.
     for (const tok of cleaned.split(/[\s;|]+/)) {
       if (!tok || !/\d/.test(tok)) continue;
-      if (push(numInfo(tok))) continue;
+      if (push(numInfo(tok, "dot"))) continue;
       for (const piece of tok.split(",")) {
         if (!/\d/.test(piece)) continue;
-        if (push(numInfo(piece))) continue;
-        for (const run of piece.match(/\d[\d.]*(?:[eE][+-]?\d+)?/g) || []) push(numInfo(run));
+        if (push(numInfo(piece, "dot"))) continue;
+        for (const run of piece.match(/\d[\d.]*(?:[eE][+-]?\d+)?/g) || []) push(numInfo(run, "dot"));
       }
     }
     return { values: out, zeros };
@@ -163,7 +214,7 @@
     return s;
   };
 
-  const SKIP_NAME = /(^|[^a-z])(ids?|year|yr|date|day|month|time|zip|postal|postcode|phone|tel|mobile|fax|code|sku|ean|upc|isbn|index|idx|rank|age|nr|#)([^a-z]|$)/i;
+  const SKIP_NAME = /(^|[^a-z])(ids?|year|yr|date|day|month|time|zip|postal|postcode|phone|tel|mobile|fax|code|sku|ean|upc|isbn|index|idx|rank|age|nr|#|azonosító|év|dátum|kód|sorszám)([^a-z]|$)/i;
 
   function looksAssigned(infos) {
     const vals = infos.filter((x) => x && !x.zero).map((x) => x.v);
@@ -186,25 +237,31 @@
     const nums = [];
     for (const r of body) if (typeof r[c] === "number" && Number.isFinite(r[c]) && r[c] !== 0) nums.push(r[c]);
     if (!nums.length) return;
-    let dec = 0;
+    let places = 0;
     for (const v of nums) {
       const str = String(Math.abs(v));
       if (/e/i.test(str)) return; // too big or small to have a fixed precision
       const dot = str.indexOf(".");
-      if (dot >= 0) dec = Math.max(dec, str.length - dot - 1);
+      if (dot >= 0) places = Math.max(places, str.length - dot - 1);
     }
-    dec = Math.min(dec, 6);
+    places = Math.min(places, 6);
     let j = 0;
     for (const info of infos) {
       if (info.zero || info.fromText) continue;
       const v = nums[j++];
       if (v === undefined) break;
-      info.sig = Math.abs(v).toFixed(dec).replace(".", "").replace(/^0+/, "");
+      info.sig = Math.abs(v).toFixed(places).replace(".", "").replace(/^0+/, "");
     }
   }
 
+  const textCells = (rows) => {
+    const out = [];
+    for (const r of rows) for (const c of r) if (typeof c === "string" && c) { out.push(c); if (out.length > 5000) return out; }
+    return out;
+  };
+
   // rows: array of arrays. prefix: sheet name when a workbook has several.
-  function columnsFromRows(rows, prefix) {
+  function columnsFromRows(rows, prefix, fmt) {
     rows = rows.filter((r) => r && r.some((c) => c !== "" && c != null));
     if (!rows.length) return [];
     const width = Math.max(...rows.map((r) => r.length));
@@ -213,33 +270,35 @@
     let num0 = 0, txt0 = 0;
     row0.forEach((c) => {
       if (c === "" || c == null) return;
-      const info = numInfo(c);
-      if (info) num0++; else txt0++;
+      if (numInfo(c, fmt)) num0++; else txt0++;
     });
     const hasHeader = rows.length > 1 && txt0 > num0;
     const body = hasHeader ? rows.slice(1) : rows;
 
     const cols = [];
     for (let c = 0; c < width; c++) {
-      const head = hasHeader && row0[c] != null && String(row0[c]).trim() ? String(row0[c]).trim() : "Column " + colLetter(c);
+      const head = hasHeader && row0[c] != null && String(row0[c]).trim() ? String(row0[c]).trim() : t("column", { l: colLetter(c) });
       const infos = [];
       let nonEmpty = 0, valid = 0;
       for (const r of body) {
         const cell = r[c];
         if (cell === "" || cell == null) continue;
         nonEmpty++;
-        const info = numInfo(cell);
+        const info = numInfo(cell, fmt);
         if (info) { valid++; infos.push(info); }
       }
       if (!valid || valid < 0.5 * nonEmpty) continue;
       fixNumericPrecision(body, c, infos);
       const name = prefix ? prefix + " · " + head : head;
-      cols.push({
-        name,
-        infos,
-        on: !SKIP_NAME.test(head) && !looksAssigned(infos),
-      });
+      cols.push({ name, infos, on: !SKIP_NAME.test(head) && !looksAssigned(infos) });
     }
+    return cols;
+  }
+
+  // keep the user's column choices when the same table is parsed again
+  function keepChoices(cols, prevCols) {
+    const prev = new Map((prevCols || []).map((c) => [c.name, c.on]));
+    cols.forEach((c) => { if (prev.has(c.name)) c.on = prev.get(c.name); });
     return cols;
   }
 
@@ -252,9 +311,9 @@
     if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
     x -= 1;
     let a = 0.99999999999980993;
-    const t = x + 7.5;
+    const tt = x + 7.5;
     for (let i = 0; i < 8; i++) a += LANCZOS[i] / (x + i + 1);
-    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(tt) - tt + Math.log(a);
   }
 
   // Regularized upper incomplete gamma Q(s, x), for chi-square p-values
@@ -285,6 +344,12 @@
     return Math.exp(lead) * h;
   }
 
+  // Upper-tail normal quantile: z with P(Z > z) = q (Abramowitz & Stegun 26.2.23).
+  function zUpper(q) {
+    const r = Math.sqrt(-2 * Math.log(q));
+    return r - (2.515517 + 0.802853 * r + 0.010328 * r * r) / (1 + 1.432788 * r + 0.189269 * r * r + 0.001308 * r * r * r);
+  }
+
   function quantile(sorted, q) {
     const i = (sorted.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i);
     return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
@@ -299,41 +364,40 @@
   // number is too short for the test. MAD cut-offs are Nigrini's.
   const TESTS = {
     first: {
-      title: "First digit", what: "leading digits", model: "Benford's law",
       labels: range(1, 9), p: range(1, 9).map(logP),
       key: (s) => +s[0] - 1,
       mad: [0.006, 0.012, 0.015],
-      tip: (l) => "Starts with " + l,
-      note: "The classic test: how often each number starts with 1, 2, 3 and so on.",
     },
     second: {
-      title: "Second digit", what: "second digits", model: "Benford's law",
       labels: range(0, 9),
       p: range(0, 9).map((d) => range(1, 9).reduce((s, a) => s + logP(10 * a + d), 0)),
       key: (s) => (s.length >= 2 ? +s[1] : -1),
       mad: [0.008, 0.01, 0.012],
-      tip: (l) => "Second digit " + l,
-      note: "Flatter than the first digit (12% zeros down to 8.5% nines). Good at catching amounts nudged up or down.",
     },
     firstTwo: {
-      title: "First two digits", what: "first two digits", model: "Benford's law",
       labels: range(10, 99), p: range(10, 99).map(logP),
       key: (s) => (s.length >= 2 ? +s.slice(0, 2) - 10 : -1),
       mad: [0.0012, 0.0018, 0.0022],
-      tip: (l) => "Starts with " + l,
-      note: "10 to 99. Much finer, so it shows specific amounts that come up too often, like values just under an approval limit. Wants 1,000+ numbers.",
     },
     lastTwo: {
-      title: "Last two digits", what: "last two digits", model: "Even spread",
+      even: true,
       labels: range(0, 99).map((d) => String(d).padStart(2, "0")), p: new Array(100).fill(0.01),
       key: (s) => (s.length >= 3 ? +s.slice(-2) : -1),
       mad: [0.0012, 0.0018, 0.0022],
-      tip: (l) => "Ends in " + l,
-      note: "Not Benford: endings should be close to even. Spikes at 00 or 50 point to rounding or numbers typed in by hand.",
     },
   };
+  const TEST_KEYS = Object.keys(TESTS);
+  for (const k of TEST_KEYS) TESTS[k].id = k;
 
-  function analyze(values, test, [k0, k1]) {
+  // The chi-square test is only trustworthy when every bin is expected at
+  // least 5 times, so that sets the minimum sample for each test:
+  // 110 for the first digit, 59 for the second, 1,146 for the first two, 500 for the last two.
+  for (const test of Object.values(TESTS)) test.nMin = Math.ceil(5 / Math.min(...test.p));
+
+  const titleOf = (test) => t("t_" + test.id);
+  const modelOf = (test) => t(test.even ? "model_even" : "model_benford");
+
+  function analyze(values, test) {
     const k = test.labels.length, P = test.p;
     const counts = new Array(k).fill(0);
     let skipped = 0;
@@ -342,9 +406,12 @@
       if (b >= 0) counts[b]++; else skipped++;
     }
     const n = counts.reduce((s, c) => s + c, 0);
-    if (!n) return { test, n, skipped };
+    const base = { test, k, n, skipped, counts, enough: n >= test.nMin };
+    if (!n) return base;
 
     const obs = counts.map((c) => c / n);
+    if (!base.enough) return { ...base, obs };
+
     const mad = obs.reduce((s, o, i) => s + Math.abs(o - P[i]), 0) / k;
     const chi2 = counts.reduce((s, c, i) => s + (c - n * P[i]) ** 2 / (n * P[i]), 0);
     const p = gammaQ((k - 1) / 2, chi2 / 2);
@@ -364,54 +431,81 @@
     });
     const band = P.map((e) => 1.96 * Math.sqrt((e * (1 - e)) / n));
 
-    // Bayes factor between two Dirichlet-multinomials centred on the
-    // expected curve: a tight one (genuine, with natural wobble) and a loose
-    // one (a noticeably different pattern). A flat alternative over every
-    // possible pattern wastes its bets on absurd shapes and misses moderate,
-    // clear deviations. Concentrations grow with the bin count so per-bin
-    // tolerance stays comparable across tests.
-    const kappa = k0 * (k / 9), kAlt = k1 * (k / 9);
-    let m0 = lgamma(kappa) - lgamma(n + kappa);
-    let m1 = lgamma(kAlt) - lgamma(n + kAlt);
-    counts.forEach((c, i) => {
-      const a = kappa * P[i], b = kAlt * P[i];
-      m0 += lgamma(c + a) - lgamma(a);
-      m1 += lgamma(c + b) - lgamma(b);
-    });
-    const fake = 1 / (1 + Math.exp(Math.max(-700, Math.min(700, m0 - m1))));
+    // Single values that come up far more often than expected. MAD averages
+    // them away (one spike among 90 pairs barely moves it), so list them
+    // separately. Bonferroni-corrected, so testing every bin at once
+    // doesn't turn noise into spikes.
+    const zCrit = zUpper(0.05 / (2 * k));
+    const spikes = z.map((v, i) => [v, i]).filter(([v]) => v > zCrit).sort((a, b) => b[0] - a[0]).map(([, i]) => i);
 
     const logs = values.map((x) => Math.log10(x.v)).filter(Number.isFinite).sort((a, b) => a - b);
     const span = logs.length > 1 ? quantile(logs, 0.95) - quantile(logs, 0.05) : 0;
 
-    return { test, k, n, skipped, counts, obs, mad, chi2, p, r, z, band, fake, span };
+    return { ...base, obs, mad, chi2, p, r, z, band, span, spikes };
+  }
+
+  /* ---------------- how well it fits ---------------- */
+
+  // A "significant deviation" needs both: the gap is bigger than chance
+  // alone would explain (chi-square p < 0.05) AND it is large in size
+  // (Nigrini's MAD band for nonconformity). Big samples make p tiny even for
+  // harmless wobbles; small samples make MAD noisy. Each check covers the other.
+  const FIT_TONE = {
+    few: "var(--paper-2)", good: "var(--ok)", marginal: "var(--warn)", deviation: "var(--accent-lit)", unclear: "var(--paper-2)",
+  };
+
+  function fitOf(a) {
+    if (!a.enough) return "few";
+    const [, m2, m3] = a.test.mad;
+    if (a.p >= 0.05) return a.mad <= m3 ? "good" : "unclear";
+    if (a.mad <= m2) return "good";
+    if (a.mad <= m3) return "marginal";
+    return "deviation";
+  }
+
+  function conformity(a) {
+    const [m1, m2, m3] = a.test.mad;
+    return t(a.mad <= m1 ? "conf_close" : a.mad <= m2 ? "conf_acceptable" : a.mad <= m3 ? "conf_marginal" : "conf_non");
+  }
+
+  const pText = (p) => (p < 0.001 ? "< " + dec(0.001, 3) : "= " + dec(p, 3));
+
+  // The sentence the result stands on, e.g. "The first digits differ from
+  // Benford's law by 0.39 percentage points per digit on average."
+  function describe(a) {
+    const gap = t("describe", { test: a.test.id, gap: dec(a.mad * 100, 2), mad: dec(a.mad, 4), conf: conformity(a), even: !!a.test.even });
+    return gap + t(a.p < 0.05 ? "chanceBeyond" : "chanceWithin", { p: pText(a.p) });
   }
 
   /* ---------------- state ---------------- */
 
   const state = {
     tab: "paste",
-    paste: { cols: null, free: null },
-    file: { cols: null, free: null, name: "" },
+    paste: { cols: null, free: null, fmt: "dot" },
+    file: { cols: null, free: null, fmt: "dot", name: "", reparse: null },
   };
 
   const textarea = $("numbers");
-  const optMin = $("opt-min"), optSign = $("opt-sign"), optUnique = $("opt-unique");
+  const optMin = $("opt-min"), optSign = $("opt-sign"), optUnique = $("opt-unique"), optFormat = $("opt-format");
   const radio = (name) => (document.querySelector(`input[name="${name}"]:checked`) || {}).value;
+
+  // the setting wins; "auto" asks the data
+  const resolveFormat = (strings) => (optFormat.value === "auto" ? detectFormat(strings) : optFormat.value);
 
   function readPaste() {
     const text = textarea.value;
     const delim = /\t|;/.test(text) ? detectDelim(text, ["\t", ";"]) : null;
     if (delim) {
-      const cols = columnsFromRows(parseDelimited(text, delim));
+      const rows = parseDelimited(text, delim);
+      const fmt = resolveFormat(textCells(rows));
+      const cols = columnsFromRows(rows, "", fmt);
       if (cols.length > 1) {
-        // keep the user's column choices while they keep typing
-        const prev = new Map((state.paste.cols || []).map((c) => [c.name, c.on]));
-        cols.forEach((c) => { if (prev.has(c.name)) c.on = prev.get(c.name); });
-        state.paste = { cols, free: null };
+        state.paste = { cols: keepChoices(cols, state.paste.cols), free: null, fmt };
         return;
       }
     }
-    state.paste = { cols: null, free: extractFree(text) };
+    const fmt = resolveFormat([text]);
+    state.paste = { cols: null, free: extractFree(text, fmt), fmt };
   }
 
   function currentSource() {
@@ -476,7 +570,7 @@
       span.title = c.name;
       span.textContent = c.name + " ";
       const cnt = document.createElement("i");
-      cnt.textContent = fmtInt.format(c.infos.length);
+      cnt.textContent = fmtInt(c.infos.length);
       span.appendChild(cnt);
       lab.append(inp, span);
       list.appendChild(lab);
@@ -486,23 +580,14 @@
   function renderParsed({ values, zeros, drop, min, src }) {
     const bits = [];
     const any = values.length || zeros || drop.small || drop.sign || drop.dups;
-    if (src.cols && src.cols.length && !src.cols.some((c) => c.on)) bits.push("No columns selected");
-    else if (any) bits.push(fmtInt.format(values.length) + " numbers used");
-    if (zeros) bits.push(fmtInt.format(zeros) + " zero" + (zeros > 1 ? "s" : "") + " skipped");
-    if (drop.small) bits.push(fmtInt.format(drop.small) + " under " + fmtNum(min) + " left out");
-    if (drop.sign) bits.push(fmtInt.format(drop.sign) + (optSign.value === "pos" ? " negative" : " positive") + " left out");
-    if (drop.dups) bits.push(fmtInt.format(drop.dups) + (drop.dups > 1 ? " repeats" : " repeat") + " merged");
+    const vars = (count) => ({ n: fmtInt(count), count });
+    if (src.cols && src.cols.length && !src.cols.some((c) => c.on)) bits.push(t("parsedNoCols"));
+    else if (any) bits.push(t("parsedRead", { ...vars(values.length), fmt: FORMATS[src.fmt || "dot"] }));
+    if (zeros) bits.push(t("parsedZeros", vars(zeros)));
+    if (drop.small) bits.push(t("parsedSmall", { ...vars(drop.small), min: fmtNum(min) }));
+    if (drop.sign) bits.push(t(optSign.value === "pos" ? "parsedNeg" : "parsedPos", vars(drop.sign)));
+    if (drop.dups) bits.push(t("parsedDups", vars(drop.dups)));
     $("parsed").textContent = bits.join(" · ");
-  }
-
-  const fmtNum = (x) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(x);
-
-  function verdictFor(f) {
-    if (f < 0.15) return ["Looks genuine", "var(--ok)"];
-    if (f < 0.4) return ["Probably genuine", "var(--ok)"];
-    if (f < 0.6) return ["Can't tell", "var(--warn)"];
-    if (f < 0.85) return ["Suspicious", "var(--accent-lit)"];
-    return ["Likely made up", "var(--accent)"];
   }
 
   function note(el, text, cls) {
@@ -512,136 +597,116 @@
 
   // share formatting: finer tests need an extra decimal
   const share = (a, x) => pct(x, a.k > 10 ? 2 : 1);
-  const pts = (a, d) => (d >= 0 ? "+" : "−") + (Math.abs(d) * 100).toFixed(a.k > 10 ? 2 : 1);
+  const pts = (a, d) => (d >= 0 ? "+" : "−") + dec(Math.abs(d) * 100, a.k > 10 ? 2 : 1);
 
-  const TEST_KEYS = ["first", "second", "firstTwo", "lastTwo"];
-  const enough = (a) => a.n >= (a.k > 10 ? 300 : 50);
-
-  function shortVerdict(f) {
-    if (f < 0.4) return ["normal", "var(--ok)"];
-    if (f < 0.6) return ["unclear", "var(--warn)"];
-    if (f < 0.85) return ["suspicious", "var(--accent-lit)"];
-    return ["flagged", "var(--accent)"];
-  }
-
-  const bigPct = (f) =>
-    f < 0.005 ? '<span class="cmp">&lt;</span>1' : f > 0.995 ? '<span class="cmp">&gt;</span>99' : String(Math.min(99, Math.max(1, Math.round(f * 100))));
-  const smallPct = (f) => (f < 0.005 ? "<1%" : f > 0.995 ? ">99%" : Math.min(99, Math.max(1, Math.round(f * 100))) + "%");
-
-  // One test passing proves little: made-up numbers with random later digits
-  // sail through the second-digit and last-two tests. So the headline is the
-  // most suspicious test that had enough numbers to be trusted.
-  function overallOf(all) {
-    const usable = TEST_KEYS.filter((k) => all[k].n && enough(all[k]));
-    const worst = usable.length ? usable.reduce((w, k) => (all[k].fake > all[w].fake ? k : w)) : "first";
-    return { all, usable, worst, fake: all[worst].fake };
-  }
-
-  function renderOverall(o) {
-    const report = $("report");
-    const w = o.all[o.worst];
-    const thin = !o.usable.length;
-    report.classList.toggle("is-thin", thin);
-
-    const [label, tone] = o.all.first.n < 20 ? ["Not enough data", "var(--paper-2)"] : verdictFor(o.fake);
-    $("fake-pct").innerHTML = bigPct(o.fake);
-    $("verdict-label").textContent = label;
-    report.style.setProperty("--tone", tone);
-    $("meter-fill").style.width = (o.fake * 100).toFixed(1) + "%";
-
-    const flagged = o.usable.filter((k) => o.all[k].fake >= 0.6);
-    let sub;
-    if (thin) sub = "Too few numbers for any test to be sure. This is a rough first read from the first-digit test.";
-    else if (flagged.length)
-      sub = `Estimated chance the numbers were made up or manipulated. Flagged by the ${TESTS[flagged.sort((a, b) => o.all[b].fake - o.all[a].fake)[0]].title.toLowerCase()} test` +
-        (flagged.length > 1 ? ` and ${flagged.length - 1} other${flagged.length > 2 ? "s" : ""}.` : ".");
-    else if (o.usable.length === TEST_KEYS.length) sub = "Estimated chance the numbers were made up or manipulated. All four tests look normal.";
-    else sub = `Estimated chance the numbers were made up or manipulated. ${o.usable.length} of 4 tests had enough numbers to run, and they look normal.`;
-    $("verdict-sub").textContent = sub;
-
+  function renderTiles(all) {
     TEST_KEYS.forEach((k) => {
-      const a = o.all[k], cell = $("tv-" + k);
-      if (!a.n || !enough(a)) {
-        cell.innerHTML = `${a.n ? smallPct(a.fake) : "–"}<small>too few</small>`;
-        cell.style.setProperty("--t-tone", "var(--paper-3)");
-        return;
-      }
-      const [word, t] = shortVerdict(a.fake);
-      cell.innerHTML = `${smallPct(a.fake)}<small>${word}</small>`;
-      cell.style.setProperty("--t-tone", t);
+      const a = all[k], fit = fitOf(a), cell = $("tv-" + k);
+      const detail = !a.enough
+        ? t("tileNeed", { n: fmtInt(a.n), min: fmtInt(a.test.nMin) })
+        : `MAD ${dec(a.mad, 4)}`;
+      cell.innerHTML = "";
+      cell.append(t(fit === "few" ? "fit_few_short" : "fit_" + fit));
+      const small = document.createElement("small");
+      small.textContent = detail;
+      cell.appendChild(small);
+      cell.style.setProperty("--t-tone", FIT_TONE[fit]);
     });
   }
 
+  function renderScale(a) {
+    const [m1, m2, m3] = a.test.mad;
+    const max = Math.max(m3 * 2, a.mad * 1.08);
+    // fr factors that sum below 1 only fill part of the row, so scale them up
+    const cols = [m1, m2 - m1, m3 - m2, max - m3].map((w) => (w * 1e4).toFixed(2) + "fr").join(" ");
+    $("scale-track").style.gridTemplateColumns = cols;
+    $("scale-labels").style.gridTemplateColumns = cols;
+    $("scale-mark").style.left = ((a.mad / max) * 100).toFixed(2) + "%";
+  }
+
   function renderReport(a) {
-    const t = a.test;
-    $("test-note").textContent = t.note;
+    const test = a.test, fit = fitOf(a);
+    const report = $("report");
+    report.style.setProperty("--tone", FIT_TONE[fit]);
+    report.classList.toggle("is-plain", !a.enough);
+    $("test-note").textContent = t("note_" + test.id);
+
+    $("verdict-label").textContent = t("fit_" + fit);
+    $("scale").hidden = !a.enough;
+    $("stats").hidden = !a.enough;
     $("detail").hidden = !a.n;
     $("detail-empty").hidden = !!a.n;
+
     if (!a.n) {
+      $("verdict-sub").textContent = "";
       $("warnings").innerHTML = "";
-      $("detail-empty").textContent = `None of these numbers have enough digits for the ${t.title.toLowerCase()} test.`;
+      $("detail-empty").textContent = t("tooShort");
       lastAnalysis = null;
       return;
     }
-    const fine = a.k > 10;
-    const thinN = fine ? 300 : 50, smallN = fine ? 1000 : 200;
 
-    // caveats
-    // caveats
     const warn = [];
-    if (a.n < thinN) warn.push(`<b>Only ${fmtInt.format(a.n)} numbers.</b> The ${t.title.toLowerCase()} test needs ${fine ? "well over a thousand" : "a few hundred"} to say much, so treat this as a rough hint.`);
-    else if (a.n < smallN) warn.push(`<b>${fmtInt.format(a.n)} numbers is on the small side</b> for this test. ${fine ? "Several thousand" : "A few hundred or more"} gives a firmer answer.`);
-    if (a.skipped) warn.push(`<b>${fmtInt.format(a.skipped)} number${a.skipped > 1 ? "s" : ""} had too few digits</b> for this test and ${a.skipped > 1 ? "were" : "was"} left out.`);
-    if (t.model !== "Even spread" && a.n >= 10) {
-      if (a.span < 1)
-        warn.push("<b>Your values sit within one order of magnitude.</b> Benford's law doesn't apply to data like this (think ages, heights, prices in a narrow range), so a poor fit is expected even if the numbers are real.");
-      else if (a.span < 2)
-        warn.push("<b>Your values span less than two orders of magnitude.</b> Benford fits best when numbers range across several (10s to 10,000s), so read this result loosely.");
+    if (a.skipped) warn.push(t("warnSkipped", { n: fmtInt(a.skipped), one: a.skipped === 1 }));
+
+    if (!a.enough) {
+      $("verdict-sub").textContent = t("fewSub", { test: test.id, min: fmtInt(test.nMin), n: fmtInt(a.n) });
+    } else {
+      $("verdict-sub").textContent = describe(a);
+      renderScale(a);
+      if (a.spikes.length) {
+        const list = a.spikes.slice(0, 5).map((i) => t("spikeItem", { l: test.labels[i], got: share(a, a.obs[i]), exp: share(a, test.p[i]) })).join(", ");
+        warn.push(t("warnSpikes", { list, more: a.spikes.length > 5 ? fmtInt(a.spikes.length - 5) : "", one: a.spikes.length === 1 }));
+      }
+      if (a.n < (a.k > 10 ? 3000 : 300)) warn.push(t("warnSmall", { n: fmtInt(a.n) }));
+      if (!test.even) {
+        if (a.span < 1) warn.push(t("warnSpan1"));
+        else if (a.span < 2) warn.push(t("warnSpan2"));
+      }
+
+      $("s-n").textContent = fmtInt(a.n);
+      if (a.r == null) {
+        $("s-r").textContent = "n/a";
+        note($("s-r-note"), t("rFlat"));
+      } else {
+        $("s-r").textContent = dec(a.r, 3);
+        note($("s-r-note"),
+          t(a.r >= 0.98 ? "rSame" : a.r >= 0.9 ? "rSimilar" : a.r >= 0.7 ? "rLoose" : "rDiff"),
+          a.r >= 0.98 ? "good" : a.r >= 0.9 ? "" : a.r >= 0.7 ? "meh" : "bad");
+      }
+      const [m1, m2, m3] = test.mad;
+      $("s-mad").textContent = dec(a.mad, 4);
+      note($("s-mad-note"), conformity(a), a.mad <= m1 ? "good" : a.mad <= m2 ? "" : a.mad <= m3 ? "meh" : "bad");
+      $("s-p").textContent = a.p < 0.001 ? "<" + dec(0.001, 3) : dec(a.p, 3);
+      note($("s-p-note"), t(a.p >= 0.05 ? "pWithin" : "pBeyond"), a.p >= 0.05 ? "good" : "meh");
     }
     $("warnings").innerHTML = warn.map((w) => `<li>${w}</li>`).join("");
 
-    // stats
-    $("s-n").textContent = fmtInt.format(a.n);
-    if (a.r == null) {
-      $("s-r").textContent = "n/a";
-      note($("s-r-note"), "expected curve is flat");
-    } else {
-      $("s-r").textContent = a.r.toFixed(3);
-      note($("s-r-note"),
-        a.r >= 0.98 ? "near-identical shape" : a.r >= 0.9 ? "similar shape" : a.r >= 0.7 ? "loosely similar" : "different shape",
-        a.r >= 0.98 ? "good" : a.r >= 0.9 ? "" : a.r >= 0.7 ? "meh" : "bad");
-    }
-    // Nigrini's cut-offs assume big samples; below that, pure sampling noise
-    // alone can push MAD past them, so compare against the noise floor too.
-    const [m1, m2, m3] = t.mad;
-    const noise = t.p.reduce((s, e) => s + Math.sqrt((2 * e * (1 - e)) / (Math.PI * a.n)), 0) / a.k;
-    const inNoise = a.mad > m2 && a.mad <= noise * 1.35;
-    $("s-mad").textContent = a.mad.toFixed(4);
-    note($("s-mad-note"),
-      inNoise ? "within noise for this n" : a.mad <= m1 ? "close conformity" : a.mad <= m2 ? "acceptable" : a.mad <= m3 ? "marginal" : "nonconforming",
-      inNoise ? "" : a.mad <= m1 ? "good" : a.mad <= m2 ? "" : a.mad <= m3 ? "meh" : "bad");
-    $("s-p").textContent = a.p < 0.001 ? "<0.001" : a.p.toFixed(3);
-    note($("s-p-note"),
-      a.p >= 0.05 ? "consistent with " + (t.model === "Even spread" ? "an even spread" : "Benford") : a.n > 3000 ? "off, but n is large" : "significant deviation",
-      a.p >= 0.05 ? "good" : a.n > 3000 ? "meh" : "bad");
-
-    // table: every bin for the short tests, the worst offenders for the long ones
-    $("th-bin").textContent = fine ? "Digits" : "Digit";
-    $("th-exp").textContent = t.model === "Even spread" ? "Expected" : "Benford";
+    // table: every bin for the short tests; for the long ones the biggest
+    // deviations, or the most common values when there's nothing to compare
+    const fine = a.k > 10;
+    $("th-bin").textContent = t(fine ? "thDigits" : "thDigit");
+    $("th-exp").textContent = t(test.even ? "thExpected" : "thBenford");
     let rows = a.obs.map((_, i) => i);
-    if (fine) rows = rows.sort((i, j) => Math.abs(a.z[j]) - Math.abs(a.z[i])).slice(0, 12);
-    $("table-note").textContent = fine ? "The 12 biggest deviations, worst first. Download the CSV for all " + a.k + "." : "";
+    if (fine) {
+      rows = a.enough
+        ? rows.sort((i, j) => Math.abs(a.z[j]) - Math.abs(a.z[i])).slice(0, 12)
+        : rows.filter((i) => a.counts[i]).sort((i, j) => a.counts[j] - a.counts[i]).slice(0, 12);
+    }
+    $("table-note").textContent = !fine ? "" : a.enough ? t("noteTop", { k: a.k }) : t("noteCommon");
     $("table-note").hidden = !fine;
     $("digit-rows").innerHTML = rows.map((i) => {
-      const diff = a.obs[i] - t.p[i];
+      if (!a.enough) {
+        return `<tr><td>${test.labels[i]}</td><td>${fmtInt(a.counts[i])}</td><td>${share(a, a.obs[i])}</td></tr>`;
+      }
+      const diff = a.obs[i] - test.p[i];
       const sig = Math.abs(a.z[i]) > 1.96;
       return `<tr>
-        <td>${t.labels[i]}</td>
-        <td>${fmtInt.format(a.counts[i])}</td>
+        <td>${test.labels[i]}</td>
+        <td>${fmtInt(a.counts[i])}</td>
         <td>${share(a, a.obs[i])}</td>
-        <td>${share(a, t.p[i])}</td>
+        <td>${share(a, test.p[i])}</td>
         <td class="${sig ? "sig" : diff >= 0 ? "pos" : "neg"}">${pts(a, diff)}</td>
-        <td class="${sig ? "sig" : ""}">${a.z[i] >= 0 ? "" : "−"}${Math.abs(a.z[i]).toFixed(2)}</td>
+        <td class="${sig ? "sig" : ""}">${a.z[i] >= 0 ? "" : "−"}${dec(Math.abs(a.z[i]), 2)}</td>
       </tr>`;
     }).join("");
 
@@ -659,13 +724,14 @@
   };
 
   let lastAnalysis = null;
-  let lastOverall = null;
-  let autoPick = false;
+  let lastAll = null;
 
+  // With too few numbers the chart shows plain counts only: no expected
+  // curve, no normal range, nothing that invites a comparison.
   function renderChart(a) {
     lastAnalysis = a;
-    const t = a.test, P = t.p, k = a.k, fine = k > 20;
-    $("key-exp").textContent = t.model;
+    const test = a.test, P = test.p, k = a.k, fine = k > 20, plain = !a.enough;
+    $("key-exp").textContent = modelOf(test);
 
     const host = $("chart");
     const narrow = host.clientWidth < 480;
@@ -673,20 +739,23 @@
     const m = { t: 18, r: 6, b: 34, l: 46 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
 
-    const top = Math.max(...a.obs, ...P.map((e, i) => e + a.band[i])) * 1.08;
-    const step = top <= 0.03 ? 0.005 : top <= 0.08 ? 0.01 : top <= 0.2 ? 0.025 : 0.05;
+    const top = Math.max(...a.obs, ...(plain ? [] : P.map((e, i) => e + a.band[i]))) * 1.08;
+    const step = top <= 0.03 ? 0.005 : top <= 0.08 ? 0.01 : top <= 0.2 ? 0.025 : top <= 0.5 ? 0.05 : 0.1;
     const yMax = Math.ceil(top / step) * step;
     const y = (v) => m.t + ih - (Math.min(v, yMax) / yMax) * ih;
     const cw = iw / k;
     const cx = (i) => m.l + cw * (i + 0.5);
 
-    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${t.title} distribution of your data compared to ${t.model}` });
+    const svg = el("svg", {
+      viewBox: `0 0 ${W} ${H}`, role: "img",
+      "aria-label": plain ? t("chartPlain", { title: titleOf(test) }) : t("chartCompare", { title: titleOf(test), model: modelOf(test) }),
+    });
 
     const grid = el("g", { class: "grid" }, svg);
     for (let v = 0; v <= yMax + 1e-9; v += step) {
       el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, grid);
       const tx = el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, grid);
-      tx.textContent = +(v * 100).toFixed(1) + "%";
+      tx.textContent = fmtNum(+(v * 100).toFixed(1)) + "%";
     }
 
     const cols = el("g", {}, svg);
@@ -696,10 +765,14 @@
       const g = el("g", { class: "col-g", "data-i": i }, cols);
       el("rect", { class: "hover-bg", x: m.l + cw * i, y: m.t, width: cw, height: ih }, g);
 
-      const lo = Math.max(0, e - a.band[i]), hi = e + a.band[i];
-      el("rect", { class: fine ? "band is-fine" : "band", x: cx(i) - bandW / 2, y: y(hi), width: bandW, height: Math.max(1, y(lo) - y(hi)) }, g);
+      let hi = 0;
+      if (!plain) {
+        const lo = Math.max(0, e - a.band[i]);
+        hi = e + a.band[i];
+        el("rect", { class: fine ? "band is-fine" : "band", x: cx(i) - bandW / 2, y: y(hi), width: bandW, height: Math.max(1, y(lo) - y(hi)) }, g);
+      }
 
-      const off = Math.abs(a.z[i]) > 1.96;
+      const off = !plain && Math.abs(a.z[i]) > 1.96;
       const by = y(a.obs[i]);
       el("rect", { class: "bar" + (off ? " is-off" : ""), x: cx(i) - bw / 2, y: by, width: bw, height: Math.max(0, m.t + ih - by) }, g);
       if (off && !fine) {
@@ -709,12 +782,14 @@
 
       if (!fine || i % 10 === 0) {
         const lab = el("text", { x: fine ? m.l + cw * i : cx(i), y: H - 10, "text-anchor": fine ? "start" : "middle" }, axis);
-        lab.textContent = t.labels[i];
+        lab.textContent = test.labels[i];
       }
     });
 
-    el("path", { class: "curve", d: P.map((e, i) => (i ? "L" : "M") + cx(i).toFixed(1) + " " + y(e).toFixed(1)).join(" ") }, svg);
-    if (!fine) P.forEach((e, i) => el("circle", { class: "pt", cx: cx(i), cy: y(e), r: 3.5 }, svg));
+    if (!plain) {
+      el("path", { class: "curve", d: P.map((e, i) => (i ? "L" : "M") + cx(i).toFixed(1) + " " + y(e).toFixed(1)).join(" ") }, svg);
+      if (!fine) P.forEach((e, i) => el("circle", { class: "pt", cx: cx(i), cy: y(e), r: 3.5 }, svg));
+    }
 
     const hits = el("g", {}, svg);
     P.forEach((_, i) => el("rect", { class: "hit", "data-i": i, x: m.l + cw * i, y: 0, width: cw, height: H }, hits));
@@ -726,13 +801,16 @@
   function showTip(i, evt) {
     const a = lastAnalysis;
     if (!a) return;
-    const t = a.test, e = t.p[i];
+    const test = a.test, e = test.p[i];
     const wrap = tip.parentElement.getBoundingClientRect();
-    tip.innerHTML = `<b>${t.tip(t.labels[i])}</b>
-      <div class="row"><span>Yours</span><span>${share(a, a.obs[i])} (${fmtInt.format(a.counts[i])})</span></div>
-      <div class="row"><span>${t.model === "Even spread" ? "Expected" : "Benford"}</span><span>${share(a, e)}</span></div>
-      <div class="row"><span>Normal range</span><span>${share(a, Math.max(0, e - a.band[i]))} to ${share(a, e + a.band[i])}</span></div>
-      <div class="row"><span>Difference</span><span>${pts(a, a.obs[i] - e)} pts</span></div>`;
+    const row = (label, value) => `<div class="row"><span>${label}</span><span>${value}</span></div>`;
+    tip.innerHTML = `<b>${t("tip_" + test.id, { l: test.labels[i] })}</b>` +
+      row(t("tipYours"), `${share(a, a.obs[i])} (${fmtInt(a.counts[i])})`) +
+      (a.enough
+        ? row(t(test.even ? "tipExpected" : "tipBenford"), share(a, e)) +
+          row(t("tipRange"), `${share(a, Math.max(0, e - a.band[i]))} ${t("tipTo")} ${share(a, e + a.band[i])}`) +
+          row(t("tipDiff"), `${pts(a, a.obs[i] - e)} ${t("pts")}`)
+        : "");
     tip.hidden = false;
     const tw = tip.offsetWidth, th = tip.offsetHeight;
     let x = evt.clientX - wrap.left + 14, yy = evt.clientY - wrap.top - th - 12;
@@ -748,8 +826,8 @@
     document.querySelectorAll(".col-g.is-hover").forEach((g) => g.classList.remove("is-hover"));
   }
   $("chart").addEventListener("pointermove", (e) => {
-    const t = e.target.closest(".hit");
-    if (t) showTip(+t.dataset.i, e); else hideTip();
+    const hit = e.target.closest(".hit");
+    if (hit) showTip(+hit.dataset.i, e); else hideTip();
   });
   $("chart").addEventListener("pointerleave", hideTip);
 
@@ -774,36 +852,39 @@
     exportT = setTimeout(() => (exportStatus.textContent = ""), 2500);
   }
 
-  function summary(o) {
-    const [label] = verdictFor(o.fake);
+  function summary(all) {
     return [
-      `Benford check, ${fmtInt.format(o.all.first.n)} numbers`,
-      `Overall chance made up: ${smallPct(o.fake)} (${label})`,
+      t("sumHead", { n: fmtInt(all.first.n) }),
       ...TEST_KEYS.map((k) => {
-        const a = o.all[k];
-        if (!a.n) return `  ${TESTS[k].title}: not enough digits`;
-        return `  ${TESTS[k].title}: ${smallPct(a.fake)} made up, MAD ${a.mad.toFixed(4)}, p ${a.p < 0.001 ? "<0.001" : a.p.toFixed(3)}${enough(a) ? "" : " (too few numbers)"}`;
+        const a = all[k];
+        if (!a.enough) return t("sumFew", { title: titleOf(a.test), n: fmtInt(a.n), min: fmtInt(a.test.nMin) });
+        return `${titleOf(a.test)}: ${t("fit_" + fitOf(a))}. ${describe(a)}`;
       }),
-      "https://tothdavid.eu/benford/",
+      t("sumFoot"),
     ].join("\n");
   }
 
+  // The CSV stays machine-readable: English headers, dot decimals.
   $("dl-csv").addEventListener("click", () => {
     const a = lastAnalysis;
     if (!a) return;
-    const t = a.test;
-    const lines = [
-      ["test", t.title], ["numbers", a.n], ["chance_made_up", a.fake.toFixed(4)],
-      ["overall_chance_made_up", lastOverall ? lastOverall.fake.toFixed(4) : ""],
-      ["correlation", a.r == null ? "" : a.r.toFixed(4)], ["mad", a.mad.toFixed(5)],
-      ["chi_square", a.chi2.toFixed(3)], ["p_value", a.p.toExponential(3)], [],
-      ["digits", "count", "share", "expected", "difference", "z"],
-      ...a.obs.map((o, i) => [t.labels[i], a.counts[i], o.toFixed(5), t.p[i].toFixed(5), (o - t.p[i]).toFixed(5), a.z[i].toFixed(3)]),
-    ].map((r) => r.join(",")).join("\n");
+    const test = a.test;
+    const name = { first: "first-digit", second: "second-digit", firstTwo: "first-two-digits", lastTwo: "last-two-digits" }[test.id];
+    const verdict = { few: "not enough data", good: "good fit", marginal: "marginal fit", deviation: "significant deviation", unclear: "no clear deviation" }[fitOf(a)];
+    const head = a.enough
+      ? [["test", name], ["numbers", a.n], ["result", verdict], ["mad", a.mad.toFixed(5)],
+        ["chi_square", a.chi2.toFixed(3)], ["p_value", a.p.toExponential(3)], ["correlation", a.r == null ? "" : a.r.toFixed(4)], [],
+        ["digits", "count", "share", "expected", "difference", "z"]]
+      : [["test", name], ["numbers", a.n], ["result", verdict], ["minimum_numbers", test.nMin], [],
+        ["digits", "count", "share"]];
+    const body = a.obs.map((o, i) => a.enough
+      ? [test.labels[i], a.counts[i], o.toFixed(5), test.p[i].toFixed(5), (o - test.p[i]).toFixed(5), a.z[i].toFixed(3)]
+      : [test.labels[i], a.counts[i], o.toFixed(5)]);
+    const lines = [...head, ...body].map((r) => r.join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([lines + "\n"], { type: "text/csv" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `benford-${t.title.toLowerCase().replace(/\s+/g, "-")}.csv`;
+    link.download = `benford-${name}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -811,20 +892,18 @@
   });
 
   $("copy-sum").addEventListener("click", async () => {
-    if (!lastOverall) return;
+    if (!lastAll) return;
     try {
-      await navigator.clipboard.writeText(summary(lastOverall));
-      flash("Copied");
+      await navigator.clipboard.writeText(summary(lastAll));
+      flash(t("copied"));
     } catch {
-      flash("Couldn't reach the clipboard");
+      flash(t("copyFail"));
     }
   });
 
   /* ---------------- main update ---------------- */
 
   function update() {
-    const level = STRICTNESS[radio("strict")] || STRICTNESS.normal;
-    $("strict-note").textContent = level.note;
     const src = currentSource();
     renderColumns(src);
     const c = collect();
@@ -833,22 +912,12 @@
     $("empty").hidden = has;
     $("report").hidden = !has;
     if (!has) {
-      lastAnalysis = lastOverall = null;
+      lastAnalysis = lastAll = null;
       return;
     }
-    const strict = level.kappa;
-    const all = Object.fromEntries(TEST_KEYS.map((k) => [k, analyze(c.values, TESTS[k], strict)]));
-    const o = overallOf(all);
-    lastOverall = o;
-
-    // fresh data opens on the test that caught it
-    if (autoPick) {
-      autoPick = false;
-      const pick = o.fake >= 0.6 ? o.worst : "first";
-      document.querySelector(`input[name="test"][value="${pick}"]`).checked = true;
-    }
-
-    renderOverall(o);
+    const all = Object.fromEntries(TEST_KEYS.map((k) => [k, analyze(c.values, TESTS[k])]));
+    lastAll = all;
+    renderTiles(all);
     renderReport(all[radio("test")] || all.first);
     lastNarrow = $("chart").clientWidth < 480;
   }
@@ -862,26 +931,31 @@
   optMin.addEventListener("input", () => { clearTimeout(minT); minT = setTimeout(update, 200); });
   optSign.addEventListener("change", update);
   optUnique.addEventListener("change", update);
-  document.querySelectorAll('input[name="test"], input[name="strict"]').forEach((r) => r.addEventListener("change", update));
+  optFormat.addEventListener("change", () => {
+    readPaste();
+    if (state.file.reparse) state.file = { ...state.file, ...state.file.reparse(state.file.cols) };
+    update();
+  });
+  document.querySelectorAll('input[name="test"]').forEach((r) => r.addEventListener("change", update));
 
   /* ---------------- tabs ---------------- */
 
   const tabs = [...document.querySelectorAll(".tab")];
   function selectTab(tab, focus) {
-    tabs.forEach((t) => {
-      const on = t === tab;
-      t.classList.toggle("is-active", on);
-      t.setAttribute("aria-selected", on);
-      t.tabIndex = on ? 0 : -1;
-      $(t.getAttribute("aria-controls")).hidden = !on;
+    tabs.forEach((tb) => {
+      const on = tb === tab;
+      tb.classList.toggle("is-active", on);
+      tb.setAttribute("aria-selected", on);
+      tb.tabIndex = on ? 0 : -1;
+      $(tb.getAttribute("aria-controls")).hidden = !on;
     });
     if (focus) tab.focus();
     state.tab = tab.id === "tab-paste" ? "paste" : "file";
     update();
   }
-  tabs.forEach((t, i) => {
-    t.addEventListener("click", () => selectTab(t));
-    t.addEventListener("keydown", (e) => {
+  tabs.forEach((tb, i) => {
+    tb.addEventListener("click", () => selectTab(tb));
+    tb.addEventListener("keydown", (e) => {
       if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
         selectTab(tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length], true);
@@ -892,10 +966,13 @@
   /* ---------------- files ---------------- */
 
   const status = $("file-status");
-  const setStatus = (msg, err) => {
-    status.textContent = msg;
+  let lastStatus = null;
+  // kept as a key + vars so it re-renders when the language changes
+  function setStatus(key, vars, err) {
+    lastStatus = key ? { key, vars, err } : null;
+    status.textContent = key ? t(key, vars) : "";
     status.classList.toggle("is-error", !!err);
-  };
+  }
 
   let xlsxLoading = null;
   function loadXLSX() {
@@ -905,7 +982,7 @@
         const s = document.createElement("script");
         s.src = XLSX_SRC;
         s.onload = () => res(window.XLSX);
-        s.onerror = () => { xlsxLoading = null; rej(new Error("Couldn't load the spreadsheet reader. Check your connection, or export as CSV.")); };
+        s.onerror = () => { xlsxLoading = null; rej(Object.assign(new Error("xlsx"), { key: "fileXlsx" })); };
         document.head.appendChild(s);
       });
     }
@@ -916,73 +993,93 @@
     // array of objects → one column per key
     if (Array.isArray(data) && data.length && data.every((r) => r && typeof r === "object" && !Array.isArray(r))) {
       const keys = [...new Set(data.flatMap((r) => Object.keys(r)))];
-      return { cols: columnsFromRows([keys, ...data.map((r) => keys.map((k) => r[k]))]), free: null };
+      const rows = [keys, ...data.map((r) => keys.map((k) => r[k]))];
+      return (prev) => {
+        const fmt = resolveFormat(textCells(rows.slice(1)));
+        return { cols: keepChoices(columnsFromRows(rows, "", fmt), prev), free: null, fmt };
+      };
     }
     // anything else → every number in it
-    const values = [];
-    let zeros = 0;
+    const leaves = [];
     (function walk(v) {
       if (Array.isArray(v)) v.forEach(walk);
       else if (v && typeof v === "object") Object.values(v).forEach(walk);
-      else if (typeof v === "number" || typeof v === "string") {
-        const info = numInfo(v);
+      else if (typeof v === "number" || typeof v === "string") leaves.push(v);
+    })(data);
+    return () => {
+      const fmt = resolveFormat(leaves.filter((v) => typeof v === "string"));
+      const values = [];
+      let zeros = 0;
+      for (const v of leaves) {
+        const info = numInfo(v, fmt);
         if (info) info.zero ? zeros++ : values.push(info);
       }
-    })(data);
-    return { cols: null, free: { values, zeros } };
+      return { cols: null, free: { values, zeros }, fmt };
+    };
+  }
+
+  // Each reader returns a parse function rather than a result, so changing
+  // the number format can re-read the same file without asking for it again.
+  async function readerFor(file) {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (["xlsx", "xls", "ods", "xlsm", "xlsb"].includes(ext)) {
+      const XLSX = await loadXLSX();
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const multi = wb.SheetNames.length > 1;
+      const sheets = wb.SheetNames.map((name) => ({
+        prefix: multi ? name : "",
+        rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, blankrows: false, defval: "" }),
+      }));
+      return (prev) => {
+        const fmt = resolveFormat(sheets.flatMap((s) => textCells(s.rows)));
+        const cols = sheets.flatMap((s) => columnsFromRows(s.rows, s.prefix, fmt));
+        return { cols: keepChoices(cols, prev), free: null, fmt };
+      };
+    }
+
+    const text = await file.text();
+    if (ext === "json" || /^\s*[[{]/.test(text)) {
+      try { return fromJSON(JSON.parse(text)); } catch { /* not JSON after all */ }
+    }
+    const delim = detectDelim(text, ext === "tsv" ? ["\t"] : ["\t", ";", ",", "|"]);
+    const rows = delim ? parseDelimited(text, delim) : null;
+    return (prev) => {
+      if (rows) {
+        const fmt = resolveFormat(textCells(rows));
+        const cols = columnsFromRows(rows, "", fmt);
+        if (cols.length) return { cols: keepChoices(cols, prev), free: null, fmt };
+      }
+      const fmt = resolveFormat([text]);
+      return { cols: null, free: extractFree(text, fmt), fmt };
+    };
   }
 
   async function handleFile(file) {
     if (!file) return;
+    const name = file.name;
     if (file.size > MAX_FILE_BYTES) {
-      setStatus(`${file.name} is ${(file.size / 1048576).toFixed(0)} MB. The limit is 50 MB.`, true);
+      setStatus("fileTooBig", { name, mb: fmtInt(Math.round(file.size / 1048576)) }, true);
       return;
     }
-    const ext = (file.name.split(".").pop() || "").toLowerCase();
-    setStatus("Reading " + file.name + "…");
+    setStatus("fileReading", { name });
     try {
-      let result;
-      if (["xlsx", "xls", "ods", "xlsm", "xlsb"].includes(ext)) {
-        const XLSX = await loadXLSX();
-        const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
-        const multi = wb.SheetNames.length > 1;
-        const cols = wb.SheetNames.flatMap((name) =>
-          columnsFromRows(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, blankrows: false, defval: "" }), multi ? name : ""));
-        result = { cols, free: null };
-      } else {
-        const text = await file.text();
-        let parsed = null;
-        if (ext === "json" || /^\s*[[{]/.test(text)) {
-          try { parsed = fromJSON(JSON.parse(text)); } catch { parsed = null; }
-        }
-        if (!parsed) {
-          const cands = ext === "tsv" ? ["\t"] : ["\t", ";", ",", "|"];
-          const delim = detectDelim(text, cands);
-          const cols = delim ? columnsFromRows(parseDelimited(text, delim)) : [];
-          parsed = cols.length ? { cols, free: null } : { cols: null, free: extractFree(text) };
-        }
-        result = parsed;
-      }
-
+      const reparse = await readerFor(file);
+      const result = reparse(null);
       const count = result.cols ? result.cols.reduce((s, c) => s + c.infos.length, 0) : result.free.values.length;
-      if (!count) {
-        setStatus(`Couldn't find any numbers in ${file.name}.`, true);
-      } else {
-        const colsBit = result.cols ? ` in ${result.cols.length} numeric column${result.cols.length > 1 ? "s" : ""}` : "";
-        setStatus(`${file.name}: ${fmtInt.format(count)} values${colsBit}.`);
-      }
-      state.file = { ...result, name: file.name };
-      autoPick = true;
+      if (!count) setStatus("fileNone", { name }, true);
+      else if (result.cols) setStatus("fileCols", { name, n: fmtInt(count), c: result.cols.length });
+      else setStatus("fileFree", { name, n: fmtInt(count) });
+      state.file = { ...result, name, reparse };
       update();
     } catch (err) {
-      setStatus(err && err.message ? err.message : "Couldn't read that file.", true);
+      setStatus(err && err.key ? err.key : "fileFail", {}, true);
     }
   }
 
   const drop = $("drop"), fileInput = $("file");
   fileInput.addEventListener("change", () => { handleFile(fileInput.files[0]); fileInput.value = ""; });
-  ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("is-over"); }));
-  ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("is-over")));
+  ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("is-over"); }));
+  ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("is-over")));
   drop.addEventListener("drop", (e) => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); });
 
   // A file dropped anywhere on the page lands in the file tab.
@@ -999,20 +1096,21 @@
   function rng(seed) {
     return () => {
       seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
-      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      let r = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
     };
   }
 
-  const money = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // samples come out in the page language's format (1,234.56 / 1 234,56)
+  const moneyFmt = () => new Intl.NumberFormat(loc(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const gaussOf = (r) => () => Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r());
   const LOG_PHI = Math.log10((1 + Math.sqrt(5)) / 2), LOG_SQRT5 = Math.log10(Math.sqrt(5));
 
-  // Every sample takes a size, so you can see how the verdict firms up as n grows.
+  // Every sample takes a size, so you can see how the result firms up as n grows.
   const SAMPLES = {
-    invoices(n) {
+    invoices(n, money) {
       const r = rng(1729), g = gaussOf(r);
       return Array.from({ length: n }, () => money.format(Math.exp(6 + 1.7 * g())));
     },
@@ -1028,15 +1126,15 @@
       }
       return out;
     },
-    messy(n) {
+    messy(n, money) {
       // Real, but not textbook: spending with a narrower spread plus a
       // recurring 24 to 38 charge (a subscription, a fee) making up 12% of
-      // rows. Normal strictness can't decide, strict flags it, lenient passes.
+      // rows. It deviates from Benford for a perfectly innocent reason.
       const r = rng(2024), g = gaussOf(r);
       return Array.from({ length: n }, () =>
         money.format(r() < 0.12 ? 24 + r() * 14 : Math.exp(5.5 + 1.6 * g())));
     },
-    invented(n) {
+    invented(n, money) {
       // How people make amounts up: leading digits spread evenly, later
       // digits that shy away from 0 and from repeating, a soft spot for 5
       // and 7, and plenty of tidy endings (.00, .50, .99, rounded to 0 or 5).
@@ -1066,7 +1164,7 @@
         return money.format(+(s + "." + cents));
       });
     },
-    limit(n) {
+    limit(n, money) {
       // Genuine expense claims, except 7% were split or trimmed to land just
       // under a 5,000 sign-off limit. The first-two-digits test finds the 48s and 49s.
       const r = rng(5000), g = gaussOf(r);
@@ -1080,8 +1178,7 @@
 
   function loadSample(name) {
     lastSample = name;
-    textarea.value = SAMPLES[name](+sampleSize.value).join("\n");
-    autoPick = true;
+    textarea.value = SAMPLES[name](+sampleSize.value, moneyFmt()).join("\n");
     textarea.scrollTop = 0;
     readPaste();
     update();
@@ -1106,8 +1203,35 @@
   });
   textarea.addEventListener("input", () => { lastSample = null; });
 
+  function renderSizeOptions() {
+    for (const o of sampleSize.options) o.textContent = fmtInt(+o.value);
+  }
+
+  /* ---------------- language ---------------- */
+
+  window.I18N.onChange(() => {
+    renderSizeOptions();
+    if (lastStatus) setStatus(lastStatus.key, lastStatus.vars, lastStatus.err);
+    update();
+  });
+
   /* ---------------- boot ---------------- */
 
+  // The collection page's admin view hands numbers over through
+  // localStorage; pick them up if they were left in the last few minutes.
+  function importHandoff() {
+    try {
+      const raw = localStorage.getItem("benford:import");
+      if (!raw) return;
+      localStorage.removeItem("benford:import");
+      const { text, at } = JSON.parse(raw);
+      if (typeof text !== "string" || Date.now() - at > 5 * 60 * 1000) return;
+      textarea.value = text;
+    } catch { /* storage blocked or bad data: start empty */ }
+  }
+
+  renderSizeOptions();
+  importHandoff();
   readPaste();
   update();
 })();

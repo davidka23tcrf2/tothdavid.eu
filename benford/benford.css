@@ -46,6 +46,9 @@ body {
 
 a { color: inherit; }
 
+/* components set their own display, which would otherwise beat [hidden] */
+[hidden] { display: none !important; }
+
 .sr {
   position: absolute;
   width: 1px; height: 1px;
@@ -73,7 +76,33 @@ a { color: inherit; }
   padding-bottom: clamp(1.25rem, 3vw, 2rem);
   border-bottom: 1px solid var(--line-2);
 }
-.masthead .home { grid-column: 1 / -1; justify-self: start; }
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* EN / HU switch */
+.lang { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r); }
+.lang button {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 0.6rem;
+  border: 0;
+  background: none;
+  color: var(--paper-2);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.lang button + button { border-left: 1px solid var(--line-2); }
+.lang button:hover { color: var(--paper); }
+.lang button.is-on { background: var(--paper); color: var(--ink-900); }
 
 .home {
   display: inline-flex;
@@ -331,6 +360,8 @@ textarea:focus { outline: none; border-color: var(--accent-lit); }
 }
 .opts > :not(legend) { clear: both; }
 
+.field-wide { margin-bottom: 0.6rem; }
+
 .opt-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -355,27 +386,7 @@ textarea:focus { outline: none; border-color: var(--accent-lit); }
 .field input:hover, .field select:hover { border-color: var(--paper-3); }
 .field input:focus, .field select:focus { outline: none; border-color: var(--accent-lit); }
 
-/* segmented choice: same shape as the chips, filled when chosen */
-.seg { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.seg label { position: relative; display: inline-flex; }
-.seg input { position: absolute; opacity: 0; pointer-events: none; }
-.seg span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 0 0.75rem;
-  border: 1px solid var(--line-2);
-  border-radius: var(--r);
-  color: var(--paper-2);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background-color 0.2s var(--ease);
-}
-.seg span:hover { color: var(--paper); border-color: var(--paper-3); }
-.seg input:checked + span { background: var(--paper); border-color: var(--paper); color: var(--ink-900); font-weight: 500; }
-.seg input:focus-visible + span { outline: 2px solid var(--accent-lit); outline-offset: 2px; }
-
-.tests-h { margin: 1.5rem 0 0.6rem; font-size: 0.78rem; color: var(--paper-2); }
+.tests-h { margin: 0 0 0.6rem; font-size: 0.78rem; color: var(--paper-2); }
 
 .tests {
   display: grid;
@@ -401,7 +412,7 @@ textarea:focus { outline: none; border-color: var(--accent-lit); }
 .test input:checked + .test-box .test-name { color: var(--paper); }
 .test-val {
   font-family: "Fraunces", Georgia, serif;
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   font-weight: 600;
   line-height: 1.1;
   color: var(--t-tone, var(--paper));
@@ -468,52 +479,64 @@ textarea:focus { outline: none; border-color: var(--accent-lit); }
 .empty p { margin: 0 0 0.35rem; font-family: "Fraunces", Georgia, serif; font-size: 1.35rem; }
 .empty .muted { font-family: inherit; font-size: 0.85rem; color: var(--paper-3); }
 
-.verdict {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: end;
-  gap: 0.25rem 1.2rem;
-}
+.verdict { margin-top: 1.6rem; }
 
-.verdict-num {
+.verdict-label {
+  margin: 0 0 0.5rem;
   font-family: "Fraunces", Georgia, serif;
   font-weight: 700;
-  font-size: clamp(3.6rem, 9vw, 6rem);
-  line-height: 0.85;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums lining-nums;
+  font-size: clamp(2rem, 4.6vw, 3.1rem);
+  line-height: 1;
+  letter-spacing: -0.025em;
   color: var(--tone, var(--paper));
   transition: color 0.3s var(--ease);
 }
-.verdict-num .cmp { font-size: 0.5em; vertical-align: 0.5em; margin-right: 0.06em; letter-spacing: 0; }
-.verdict-num .pct { font-size: 0.45em; letter-spacing: 0; margin-left: 0.04em; opacity: 0.75; }
+.is-plain .verdict-label { font-size: clamp(1.5rem, 3.2vw, 2.1rem); line-height: 1.1; }
+.verdict-sub { margin: 0; color: var(--paper-2); font-size: 0.85rem; }
 
-.verdict-label {
-  margin: 0 0 0.15rem;
-  font-family: "Fraunces", Georgia, serif;
-  font-weight: 600;
-  font-size: clamp(1.25rem, 2.6vw, 1.7rem);
-  line-height: 1.1;
-  color: var(--tone, var(--paper));
-}
-.verdict-sub { margin: 0; color: var(--paper-2); font-size: 0.8rem; }
-
-.meter {
-  grid-column: 1 / -1;
+/* MAD on Nigrini's scale: zones sized by the test's own cut-offs */
+.scale { margin-top: 1.2rem; }
+.scale-track {
   position: relative;
-  height: 3px;
-  margin-top: 1.1rem;
-  background: var(--line-2);
+  display: grid;
+  height: 8px;
+  gap: 2px;
 }
-.meter span {
+.scale-track .z { border-radius: 1px; }
+.scale-track .z1 { background: color-mix(in srgb, var(--ok) 70%, transparent); }
+.scale-track .z2 { background: color-mix(in srgb, var(--ok) 35%, transparent); }
+.scale-track .z3 { background: color-mix(in srgb, var(--warn) 45%, transparent); }
+.scale-track .z4 { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.scale-mark {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 0;
-  background: var(--tone, var(--paper));
-  transition: width 0.5s var(--ease), background-color 0.3s var(--ease);
+  top: -5px;
+  width: 3px;
+  height: 18px;
+  margin-left: -1.5px;
+  background: var(--paper);
+  border-radius: 1px;
+  transition: left 0.4s var(--ease);
+}
+.scale-labels {
+  display: grid;
+  gap: 2px;
+  margin-top: 0.45rem;
+  font-size: 0.7rem;
+  color: var(--paper-2);
+}
+.scale-labels span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.caveat {
+  margin: 1.1rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.78rem;
+  color: var(--paper-2);
 }
 
-.is-thin .verdict-num, .is-thin .verdict-label { opacity: 0.55; }
+/* too few numbers: plain counts, nothing to compare against */
+.is-plain .key-exp, .is-plain .key-band { display: none; }
+.is-plain .digits th:nth-child(n + 4), .is-plain .digits td:nth-child(n + 4) { display: none; }
 
 .warnings {
   list-style: none;
@@ -695,7 +718,6 @@ textarea:focus { outline: none; border-color: var(--accent-lit); }
   .stats, .tests { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat:nth-child(3) { border-left: 0; padding-left: 0; }
   .stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
-  .verdict { grid-template-columns: 1fr; }
   .digits th:nth-child(6), .digits td:nth-child(6) { display: none; }
 }
 
