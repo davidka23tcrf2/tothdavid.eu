@@ -27,7 +27,7 @@ async function state(roundId) {
 
 module.exports = async (req, res) => {
   if (!S.configured()) return S.send(res, 503, { error: "not_configured" });
-  if (!process.env.ADMIN_PASSWORD) return S.send(res, 503, { error: "no_password" });
+  if (!S.hasPassword()) return S.send(res, 503, { error: "no_password" });
   if (req.method !== "POST") return S.send(res, 405, { error: "method" });
 
   try {

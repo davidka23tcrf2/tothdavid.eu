@@ -10,7 +10,8 @@ const crypto = require("crypto");
 
 const URL_ = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+// the admin password, set in Vercel as ADMIN_PASSWORD or simply "pass"
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.pass || "";
 
 const configured = () => Boolean(URL_ && TOKEN);
 
@@ -155,7 +156,9 @@ function flagsFor(nums) {
   return flags;
 }
 
+const hasPassword = () => Boolean(ADMIN_PASSWORD);
+
 module.exports = {
-  configured, redis, pipeline, K, newId, getRound, saveRound, currentRound, listSubs,
+  configured, hasPassword, redis, pipeline, K, newId, getRound, saveRound, currentRound, listSubs,
   clientIp, underLimit, send, passwordOk, reject, flagsFor, COUNT, MIN, MAX,
 };
