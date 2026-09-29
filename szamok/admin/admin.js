@@ -33,11 +33,9 @@
     copyLink: "Link másolása",
     figSubs: "Beküldés",
     figNums: "Szám",
-    figFlagged: "Jelölt",
     openBenford: "Megnyitás a Benford-ellenőrzőben",
     copyNums: "Számok másolása",
     dlCsv: "CSV letöltése",
-    skipFlagged: "Jelölt beküldések kihagyása az exportból",
     auto: "Frissítés 10 másodpercenként (30 percig)",
     copied: "Kimásolva.",
     copyFail: "Nem sikerült a vágólapra másolni.",
@@ -49,15 +47,10 @@
     thWhen: "Idő",
     thName: "Név",
     thNums: "Számok",
-    thFlags: "Jelölés",
     noName: "névtelen",
     remove: "Törlés",
     removeConfirm: "Törlöd ezt a beküldést? Ugyanarról az eszközről akkor sem lehet újra beküldeni.",
     subsEmpty: "Még nincs beküldés.",
-    f_round: "sok kerek szám",
-    f_repdigits: "ismétlődő számjegyek",
-    f_ascending: "növekvő sorrendben",
-    f_tiny: "sok egyjegyű",
   };
 
   const en = {
@@ -84,11 +77,9 @@
     copyLink: "Copy link",
     figSubs: "Submissions",
     figNums: "Numbers",
-    figFlagged: "Flagged",
     openBenford: "Open in the Benford checker",
     copyNums: "Copy numbers",
     dlCsv: "Download CSV",
-    skipFlagged: "Leave flagged submissions out of exports",
     auto: "Refresh every 10 seconds (for 30 minutes)",
     copied: "Copied.",
     copyFail: "Couldn't reach the clipboard.",
@@ -100,15 +91,10 @@
     thWhen: "Time",
     thName: "Name",
     thNums: "Numbers",
-    thFlags: "Flags",
     noName: "no name",
     remove: "Delete",
     removeConfirm: "Delete this submission? The same device still can't submit again.",
     subsEmpty: "No submissions yet.",
-    f_round: "many round numbers",
-    f_repdigits: "repeated digits",
-    f_ascending: "typed in ascending order",
-    f_tiny: "many single digits",
   };
 
   const I18N = window.I18N;
@@ -179,10 +165,7 @@
 
   const when = (ts) => new Date(ts).toLocaleString(I18N.locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-  function exportSubs() {
-    const skip = $("skip-flagged").checked;
-    return data.subs.filter((s) => !(skip && s.flags && s.flags.length));
-  }
+  const exportSubs = () => data.subs;
 
   function render() {
     if (!data) return;
@@ -193,10 +176,8 @@
     $("share-url").textContent = location.origin + "/szamok";
 
     const subs = data.subs;
-    const flagged = subs.filter((s) => s.flags && s.flags.length).length;
     $("f-subs").textContent = fmtInt(subs.length);
     $("f-nums").textContent = fmtInt(subs.length * 10);
-    $("f-flagged").textContent = fmtInt(flagged);
 
     // newest first in the table
     const body = $("subs");
@@ -214,13 +195,6 @@
       const who = cell("who", s.name || t("noName"));
       if (!s.name) who.classList.add("is-empty");
       cell("nums-cell", s.nums.join(" "));
-      const flags = cell("");
-      for (const f of s.flags || []) {
-        const span = document.createElement("span");
-        span.className = "flag";
-        span.textContent = t("f_" + f);
-        flags.appendChild(span);
-      }
       const del = cell("del");
       const btn = document.createElement("button");
       btn.type = "button";
@@ -320,8 +294,8 @@
     const subs = exportSubs();
     if (!subs.length) return note(t("nothing"), true);
     const esc = (v) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-    const lines = [["time", "name", ...Array.from({ length: 10 }, (_, i) => "n" + (i + 1)), "flags"].join(",")];
-    for (const s of subs) lines.push([new Date(s.t).toISOString(), esc(s.name || ""), ...s.nums, esc((s.flags || []).join(" "))].join(","));
+    const lines = [["time", "name", ...Array.from({ length: 10 }, (_, i) => "n" + (i + 1))].join(",")];
+    for (const s of subs) lines.push([new Date(s.t).toISOString(), esc(s.name || ""), ...s.nums].join(","));
     const url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
@@ -331,8 +305,6 @@
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
-
-  $("skip-flagged").addEventListener("change", renderMini);
 
   // Live during a lesson: refresh while the tab is visible. It switches
   // itself off after 30 minutes so a forgotten tab doesn't use up the

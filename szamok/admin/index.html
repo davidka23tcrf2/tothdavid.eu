@@ -64,17 +64,12 @@
         <dl class="figures">
           <div class="figure"><dt data-i18n="figSubs">Beküldés</dt><dd id="f-subs">0</dd></div>
           <div class="figure"><dt data-i18n="figNums">Szám</dt><dd id="f-nums">0</dd></div>
-          <div class="figure"><dt data-i18n="figFlagged">Jelölt</dt><dd id="f-flagged">0</dd></div>
         </dl>
         <div class="tools">
           <button class="btn btn-small" type="button" id="open-benford" data-i18n="openBenford">Megnyitás a Benford-ellenőrzőben</button>
           <button class="btn btn-quiet btn-small" type="button" id="copy-nums" data-i18n="copyNums">Számok másolása</button>
           <button class="btn btn-quiet btn-small" type="button" id="dl-csv" data-i18n="dlCsv">CSV letöltése</button>
         </div>
-        <label class="check">
-          <input type="checkbox" id="skip-flagged" />
-          <span data-i18n="skipFlagged">Jelölt beküldések kihagyása az exportból</span>
-        </label>
         <label class="check">
           <input type="checkbox" id="auto" checked />
           <span data-i18n="auto">Frissítés 10 másodpercenként</span>
@@ -93,7 +88,7 @@
     <div class="table-wrap">
       <table class="subs">
         <thead>
-          <tr><th data-i18n="thWhen">Idő</th><th data-i18n="thName">Név</th><th data-i18n="thNums">Számok</th><th data-i18n="thFlags">Jelölés</th><th></th></tr>
+          <tr><th data-i18n="thWhen">Idő</th><th data-i18n="thName">Név</th><th data-i18n="thNums">Számok</th><th></th></tr>
         </thead>
         <tbody id="subs"></tbody>
       </table>

@@ -312,7 +312,7 @@ button { font: inherit; }
 
 .figures {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   border-top: 1px solid var(--line-2);
   border-bottom: 1px solid var(--line-2);
 }
@@ -393,17 +393,6 @@ button { font: inherit; }
 .subs .who.is-empty { color: var(--paper-3); }
 .subs .del { text-align: right; }
 
-.flag {
-  display: inline-block;
-  margin: 0 0.3rem 0.3rem 0;
-  padding: 0.05rem 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
-  border-radius: var(--r);
-  color: var(--warn);
-  font-size: 0.7rem;
-  white-space: nowrap;
-}
-
 .empty-note { margin: 1rem 0 0; color: var(--paper-2); }
 
 .setup {
@@ -423,7 +412,6 @@ button { font: inherit; }
 }
 
 @media (max-width: 560px) {
-  .figures { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .figure { padding: 0.8rem 0.6rem; }
   .figure dd { font-size: 1.35rem; }
   .bar .field { min-width: 0; width: 100%; }

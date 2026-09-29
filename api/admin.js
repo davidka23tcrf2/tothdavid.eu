@@ -14,7 +14,7 @@ const body = (req) => {
 async function state() {
   const open = await S.isOpen();
   // device ids are for the duplicate check only; the page doesn't need them
-  const subs = (await S.listSubs()).map(({ device, ...s }) => s);
+  const subs = (await S.listSubs()).map(({ device, flags, ...s }) => s);
   return { open, subs };
 }
 

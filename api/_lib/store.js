@@ -151,19 +151,9 @@ function reject(nums, others) {
   return null;
 }
 
-// Soft flags don't block anything. They mark sets for the admin to look at.
-function flagsFor(nums) {
-  const flags = [];
-  if (nums.filter((n) => n % 100 === 0).length >= 5) flags.push("round");
-  if (nums.filter(isRepdigit).length >= 3) flags.push("repdigits");
-  if (nums.every((n, i) => i === 0 || n > nums[i - 1])) flags.push("ascending");
-  if (nums.filter((n) => n < 10).length >= 5) flags.push("tiny");
-  return flags;
-}
-
 const hasPassword = () => Boolean(ADMIN_PASSWORD);
 
 module.exports = {
   configured, hasPassword, redis, pipeline, K, newId, isOpen, setOpen, listSubs,
-  clientIp, underLimit, send, passwordOk, reject, flagsFor, COUNT, MIN, MAX,
+  clientIp, underLimit, send, passwordOk, reject, COUNT, MIN, MAX,
 };

@@ -54,7 +54,7 @@ module.exports = async (req, res) => {
     // SADD answers 0 if this device got in first from another tab
     if (!(await S.redis("SADD", S.K.devices, device))) return S.send(res, 200, { ok: false, error: "already" });
 
-    const sub = { id: S.newId(), t: Date.now(), name: cleanName(b.name), nums, flags: S.flagsFor(nums), device };
+    const sub = { id: S.newId(), t: Date.now(), name: cleanName(b.name), nums, device };
     await S.redis("HSET", S.K.subs, sub.id, JSON.stringify(sub));
     return S.send(res, 200, { ok: true });
   } catch (err) {
