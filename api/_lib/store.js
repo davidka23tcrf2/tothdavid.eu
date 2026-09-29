@@ -43,42 +43,47 @@ async function pipeline(cmds) {
 
 /* ---------------- keys ---------------- */
 
+// One collection: everyone submits into the same list, once per device.
 const K = {
-  current: "szamok:current",
-  rounds: "szamok:rounds", // hash: round id -> JSON {id, name, created, open}
-  subs: (r) => `szamok:r:${r}:subs`, // hash: submission id -> JSON
-  devices: (r) => `szamok:r:${r}:devices`, // set of device ids that already submitted
+  open: "szamok:open", // "1" while collecting, "0" while paused
+  subs: "szamok:subs", // hash: submission id -> JSON
+  devices: "szamok:devices", // set of device ids that already submitted
   rate: (ip, bucket) => `szamok:rate:${ip}:${bucket}`,
   authFail: (ip) => `szamok:authfail:${ip}`,
 };
 
 const newId = () => Date.now().toString(36) + crypto.randomBytes(3).toString("hex");
 
-async function getRound(id) {
-  const raw = await redis("HGET", K.rounds, id);
-  return raw ? JSON.parse(raw) : null;
+const setOpen = (open) => redis("SET", K.open, open ? "1" : "0");
+
+// Earlier versions collected in rounds. The first call after the switch
+// moves the round that was collecting into the single collection.
+// Returns whether that round was open.
+async function migrateRounds() {
+  const id = await redis("GET", "szamok:current");
+  if (!id) return true;
+  const raw = await redis("HGET", "szamok:rounds", id);
+  const [hasSubs, hasDevices] = await pipeline([["EXISTS", `szamok:r:${id}:subs`], ["EXISTS", `szamok:r:${id}:devices`]]);
+  const moves = [["DEL", "szamok:current"]];
+  if (hasSubs) moves.push(["RENAME", `szamok:r:${id}:subs`, K.subs]);
+  if (hasDevices) moves.push(["RENAME", `szamok:r:${id}:devices`, K.devices]);
+  await pipeline(moves);
+  return raw ? JSON.parse(raw).open !== false : true;
 }
 
-async function saveRound(round) {
-  await redis("HSET", K.rounds, round.id, JSON.stringify(round));
-  return round;
+// Whether submissions are accepted right now.
+async function isOpen() {
+  const v = await redis("GET", K.open);
+  if (v != null) return v === "1";
+  // SET … NX: only the first request ever runs the migration
+  if (!(await redis("SET", K.open, "1", "NX"))) return (await redis("GET", K.open)) === "1";
+  const open = await migrateRounds();
+  if (!open) await setOpen(false);
+  return open;
 }
 
-// The round people are submitting to right now. The first ever call makes one.
-async function currentRound() {
-  const id = await redis("GET", K.current);
-  if (id) {
-    const round = await getRound(id);
-    if (round) return round;
-  }
-  const round = { id: newId(), name: "1", created: Date.now(), open: true };
-  await saveRound(round);
-  await redis("SET", K.current, round.id);
-  return round;
-}
-
-async function listSubs(roundId) {
-  const raw = (await redis("HGETALL", K.subs(roundId))) || [];
+async function listSubs() {
+  const raw = (await redis("HGETALL", K.subs)) || [];
   // Upstash returns HGETALL as a flat [field, value, field, value…] list
   const subs = [];
   for (let i = 1; i < raw.length; i += 2) subs.push(JSON.parse(raw[i]));
@@ -136,7 +141,7 @@ function reject(nums, others) {
   // mostly 11, 222, 3333…
   if (nums.filter(isRepdigit).length >= 6) return "pattern";
 
-  // a copy (or near copy) of a set already in this round
+  // a copy (or near copy) of a set already submitted
   const mine = new Set(nums);
   for (const o of others) {
     let same = 0;
@@ -159,6 +164,6 @@ function flagsFor(nums) {
 const hasPassword = () => Boolean(ADMIN_PASSWORD);
 
 module.exports = {
-  configured, hasPassword, redis, pipeline, K, newId, getRound, saveRound, currentRound, listSubs,
+  configured, hasPassword, redis, pipeline, K, newId, isOpen, setOpen, listSubs,
   clientIp, underLimit, send, passwordOk, reject, flagsFor, COUNT, MIN, MAX,
 };

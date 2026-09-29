@@ -12,7 +12,12 @@
   const hu = {
     docTitle: "Tíz szám",
     title: "Tíz szám",
-    lede: "Írj be 10 különböző pozitív egész számot 1 és 9999 között. Találd ki őket fejben: ne használj véletlenszám-generátort, és ne nézz meg hozzá semmit.",
+    lede: "Egy kutatáson dolgozom, és ehhez van szükségem a segítségedre. Többet sajnos nem árulhatok el róla, mert az befolyásolná az eredményt. A feladat kevesebb mint egy perc.",
+    introH: "Mit kell tenned?",
+    step1: "Gondolj <b>10 különböző egész számra</b> 1 és 9999 között.",
+    step2: "Találd ki őket <b>fejben</b>: ne használj véletlenszám-generátort, és ne nézz meg hozzá semmit. Nincs jó vagy rossz válasz.",
+    step3: "Írj be egy számot minden mezőbe. A neved megadása nem kötelező.",
+    step4: "Nyomd meg a <b>Beküldés</b> gombot. Egy eszközről <b>csak egyszer</b> lehet beküldeni, ezért előtte nézd át a számokat.",
     numsLegend: "A tíz szám",
     numLabel: ({ i }) => `${i}. szám`,
     nameLabel: "Neved (nem kötelező)",
@@ -35,7 +40,12 @@
   const en = {
     docTitle: "Ten numbers",
     title: "Ten numbers",
-    lede: "Type 10 different whole numbers between 1 and 9999. Make them up in your head: don't use a random number generator, and don't look anything up.",
+    lede: "I'm doing some research and I need your help with it. I can't tell you anything more about it, because that would affect the results. The task takes under a minute.",
+    introH: "What to do",
+    step1: "Think of <b>10 different whole numbers</b> between 1 and 9999.",
+    step2: "Make them up <b>in your head</b>: don't use a random number generator, and don't look anything up. There are no right or wrong answers.",
+    step3: "Type one number into each box. Your name is optional.",
+    step4: "Press <b>Send</b>. Each device can send <b>only once</b>, so check your numbers first.",
     numsLegend: "The ten numbers",
     numLabel: ({ i }) => `Number ${i}`,
     nameLabel: "Your name (optional)",
@@ -72,6 +82,8 @@
     const input = document.createElement("input");
     input.type = "text";
     input.inputMode = "numeric";
+    input.pattern = "[0-9]*"; // older iOS only shows the digit pad with this
+    input.enterKeyHint = "next";
     input.autocomplete = "off";
     input.maxLength = 6;
     input.dataset.i = i;
@@ -112,7 +124,7 @@
     });
   }
 
-  /* ---------------- device + round ---------------- */
+  /* ---------------- device ---------------- */
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -128,7 +140,7 @@
     return id;
   }
 
-  let round = null;
+  const DONE = "szamok:done";
   let lastMsg = null;
 
   function showMsg(key) {
@@ -140,20 +152,24 @@
   function showDone(key) {
     $("form").hidden = true;
     $("done").hidden = false;
+    if (document.activeElement) document.activeElement.blur(); // close the phone keyboard
+    $("done").scrollIntoView({ block: "center", behavior: "smooth" });
     if (key) {
       $("done-text").dataset.i18n = key;
       $("done-text").textContent = t(key);
     }
   }
 
-  async function checkRound() {
+  async function checkStatus() {
+    if (store.get(DONE)) return showDone("e_already");
     try {
-      const res = await fetch("/api/submit", { cache: "no-store" });
+      const res = await fetch("/api/submit?device=" + encodeURIComponent(deviceId()), { cache: "no-store" });
       if (!res.ok) return;
       const info = await res.json();
-      round = info.round;
-      if (store.get("szamok:done:" + round)) showDone("e_already");
-      else if (!info.open) showMsg("e_closed");
+      if (info.already) {
+        store.set(DONE, "1");
+        showDone("e_already");
+      } else if (!info.open) showMsg("e_closed");
     } catch { /* offline: the submit will say so */ }
   }
 
@@ -166,6 +182,10 @@
     markFields(nums, problem);
     if (problem) {
       showMsg("e_" + problem);
+      // on a phone the message can sit under the keyboard: take them to the problem
+      const bad = inputs.find((inp) => inp.classList.contains("is-bad"));
+      if (bad) bad.focus();
+      else $("msg").scrollIntoView({ block: "center", behavior: "smooth" });
       return;
     }
 
@@ -181,10 +201,10 @@
       });
       const out = await res.json().catch(() => ({}));
       if (out.ok) {
-        if (round) store.set("szamok:done:" + round, "1");
+        store.set(DONE, "1");
         showDone();
       } else if (out.error === "already") {
-        if (round) store.set("szamok:done:" + round, "1");
+        store.set(DONE, "1");
         showDone("e_already");
       } else {
         showMsg(hu["e_" + out.error] ? "e_" + out.error : "e_other");
@@ -200,11 +220,19 @@
   // clear the red mark once someone edits a field
   grid.addEventListener("input", (e) => e.target.classList.remove("is-bad"));
 
+  // Enter / "next" on the phone keyboard moves on instead of sending half a form
+  grid.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const next = inputs[inputs.indexOf(e.target) + 1];
+    (next || $("name")).focus();
+  });
+
   I18N.onChange(() => {
     labelInputs();
     if (lastMsg) showMsg(lastMsg);
     if (!$("send").disabled) $("send").textContent = t("send");
   });
 
-  checkRound();
+  checkStatus();
 })();

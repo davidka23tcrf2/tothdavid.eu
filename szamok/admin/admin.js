@@ -25,18 +25,10 @@
       <li>A Vercel projektben a <b>Settings → Environment Variables</b> alatt add hozzá ezt a kettőt, és egy <code>ADMIN_PASSWORD</code> változót a választott jelszóval.</li>
       <li>Telepítsd újra az oldalt (Deployments → Redeploy), majd töltsd újra ezt az oldalt.</li>
     </ol>`,
-    roundLabel: "Kör",
-    collecting: "gyűjt",
     open: "Gyűjtés folyamatban",
     closed: "Gyűjtés szünetel",
-    inactive: "Nem ebbe a körbe gyűjt",
     pause: "Gyűjtés szüneteltetése",
     resume: "Gyűjtés folytatása",
-    makeCurrent: "Legyen ez a gyűjtő kör",
-    newRoundLabel: "Új kör neve",
-    newRoundPh: "pl. 11.B, szeptember 30.",
-    newRound: "Új kör indítása",
-    newRoundConfirm: "Új kört indítasz? A résztvevők ezután az új körbe küldenek, és mindenki újra beküldhet.",
     shareLabel: "A résztvevőknek ezt a címet add meg:",
     copyLink: "Link másolása",
     figSubs: "Beküldés",
@@ -60,8 +52,8 @@
     thFlags: "Jelölés",
     noName: "névtelen",
     remove: "Törlés",
-    removeConfirm: "Törlöd ezt a beküldést? Ugyanarról az eszközről ebben a körben akkor sem lehet újra beküldeni.",
-    subsEmpty: "Ebben a körben még nincs beküldés.",
+    removeConfirm: "Törlöd ezt a beküldést? Ugyanarról az eszközről akkor sem lehet újra beküldeni.",
+    subsEmpty: "Még nincs beküldés.",
     f_round: "sok kerek szám",
     f_repdigits: "ismétlődő számjegyek",
     f_ascending: "növekvő sorrendben",
@@ -84,18 +76,10 @@
       <li>In the Vercel project, under <b>Settings → Environment Variables</b>, add those two plus <code>ADMIN_PASSWORD</code> with the password you want.</li>
       <li>Redeploy (Deployments → Redeploy), then reload this page.</li>
     </ol>`,
-    roundLabel: "Round",
-    collecting: "collecting",
     open: "Collecting",
     closed: "Paused",
-    inactive: "Not the collecting round",
     pause: "Pause collecting",
     resume: "Resume collecting",
-    makeCurrent: "Collect into this round",
-    newRoundLabel: "New round name",
-    newRoundPh: "e.g. 11B, 30 September",
-    newRound: "Start new round",
-    newRoundConfirm: "Start a new round? People will submit into it from now on, and everyone can submit again.",
     shareLabel: "Give participants this address:",
     copyLink: "Copy link",
     figSubs: "Submissions",
@@ -119,8 +103,8 @@
     thFlags: "Flags",
     noName: "no name",
     remove: "Delete",
-    removeConfirm: "Delete this submission? The same device still can't submit again in this round.",
-    subsEmpty: "No submissions in this round yet.",
+    removeConfirm: "Delete this submission? The same device still can't submit again.",
+    subsEmpty: "No submissions yet.",
     f_round: "many round numbers",
     f_repdigits: "repeated digits",
     f_ascending: "typed in ascending order",
@@ -162,7 +146,6 @@
   }
 
   let data = null;          // last state from the server
-  let viewing = null;       // round id on screen
 
   function handleError(err) {
     if (err.code === "password") { session.set(""); password = ""; show("login"); $("login-msg").textContent = t("badPassword"); }
@@ -173,8 +156,7 @@
 
   async function load(action = "state", extra = {}) {
     try {
-      data = await api(action, { round: viewing, ...extra });
-      viewing = data.round.id;
+      data = await api(action, extra);
       show("dash");
       render();
       return true;
@@ -204,27 +186,10 @@
 
   function render() {
     if (!data) return;
-    const round = data.round;
-
-    // rounds, newest first; the collecting one is marked
-    const sel = $("round-select");
-    sel.innerHTML = "";
-    for (const r of data.rounds) {
-      const o = document.createElement("option");
-      o.value = r.id;
-      o.textContent = `${r.name} · ${new Date(r.created).toLocaleDateString(I18N.locale)}${r.id === data.current ? ` (${t("collecting")})` : ""}`;
-      o.selected = r.id === round.id;
-      sel.appendChild(o);
-    }
-
-    // only the current round receives submissions; open/closed is about that one
-    const isCurrent = round.id === data.current;
     const status = $("status");
-    status.textContent = t(!isCurrent ? "inactive" : round.open ? "open" : "closed");
-    status.classList.toggle("is-open", isCurrent && round.open);
-    $("toggle-open").textContent = t(round.open ? "pause" : "resume");
-    $("toggle-open").hidden = !isCurrent;
-    $("make-current").hidden = isCurrent;
+    status.textContent = t(data.open ? "open" : "closed");
+    status.classList.toggle("is-open", data.open);
+    $("toggle-open").textContent = t(data.open ? "pause" : "resume");
     $("share-url").textContent = location.origin + "/szamok";
 
     const subs = data.subs;
@@ -262,7 +227,7 @@
       btn.className = "btn btn-quiet btn-small btn-danger";
       btn.textContent = t("remove");
       btn.addEventListener("click", () => {
-        if (confirm(t("removeConfirm"))) load("remove", { round: round.id, id: s.id });
+        if (confirm(t("removeConfirm"))) load("remove", { id: s.id });
       });
       del.appendChild(btn);
       body.appendChild(tr);
@@ -322,17 +287,7 @@
     show("login");
   });
 
-  $("round-select").addEventListener("change", (e) => { viewing = e.target.value; load(); });
-  $("toggle-open").addEventListener("click", () => load("setOpen", { round: data.round.id, open: !data.round.open }));
-  $("make-current").addEventListener("click", () => load("setCurrent", { round: data.round.id }));
-  $("new-round").addEventListener("submit", (e) => {
-    e.preventDefault();
-    if (!confirm(t("newRoundConfirm"))) return;
-    const name = $("new-round-name").value;
-    $("new-round-name").value = "";
-    viewing = null;
-    load("newRound", { name });
-  });
+  $("toggle-open").addEventListener("click", () => load("setOpen", { open: !data.open }));
 
   async function copy(text) {
     try {
@@ -370,7 +325,7 @@
     const url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `szamok-${data.round.name.replace(/[^\p{L}\p{N}]+/gu, "-")}.csv`;
+    a.download = `szamok-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();

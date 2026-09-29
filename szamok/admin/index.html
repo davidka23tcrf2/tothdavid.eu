@@ -49,22 +49,8 @@
   <!-- ============ dashboard ============ -->
   <section id="dash" hidden>
     <div class="bar">
-      <label class="field">
-        <span data-i18n="roundLabel">Kör</span>
-        <select id="round-select"></select>
-      </label>
       <span class="status" id="status"></span>
-      <div class="bar-group">
-        <button class="btn btn-quiet btn-small" type="button" id="toggle-open"></button>
-        <button class="btn btn-quiet btn-small" type="button" id="make-current" hidden data-i18n="makeCurrent">Legyen ez a gyűjtő kör</button>
-      </div>
-      <form class="bar-group" id="new-round" novalidate>
-        <label class="field">
-          <span data-i18n="newRoundLabel">Új kör neve</span>
-          <input type="text" id="new-round-name" maxlength="60" data-i18n-attr="placeholder:newRoundPh" />
-        </label>
-        <button class="btn btn-small" type="submit" data-i18n="newRound">Új kör indítása</button>
-      </form>
+      <button class="btn btn-quiet btn-small" type="button" id="toggle-open"></button>
     </div>
 
     <p class="share">
@@ -112,7 +98,7 @@
         <tbody id="subs"></tbody>
       </table>
     </div>
-    <p class="empty-note" id="subs-empty" hidden data-i18n="subsEmpty">Ebben a körben még nincs beküldés.</p>
+    <p class="empty-note" id="subs-empty" hidden data-i18n="subsEmpty">Még nincs beküldés.</p>
   </section>
 </main>
 

@@ -26,7 +26,17 @@
   </div>
 
   <h1 class="title" data-i18n="title">Tíz szám</h1>
-  <p class="lede" data-i18n="lede">Írj be 10 különböző pozitív egész számot 1 és 9999 között. Találd ki őket fejben: ne használj véletlenszám-generátort, és ne nézz meg hozzá semmit.</p>
+  <p class="lede" data-i18n="lede">Egy kutatáson dolgozom, és ehhez van szükségem a segítségedre. Többet sajnos nem árulhatok el róla, mert az befolyásolná az eredményt. A feladat kevesebb mint egy perc.</p>
+
+  <section class="intro" aria-labelledby="intro-h">
+    <h2 class="intro-h" id="intro-h" data-i18n="introH">Mit kell tenned?</h2>
+    <ol class="steps">
+      <li data-i18n-html="step1"></li>
+      <li data-i18n-html="step2"></li>
+      <li data-i18n-html="step3"></li>
+      <li data-i18n-html="step4"></li>
+    </ol>
+  </section>
 
   <form id="form" novalidate>
     <fieldset class="nums">
@@ -36,7 +46,7 @@
 
     <label class="field name-field">
       <span data-i18n="nameLabel">Neved (nem kötelező)</span>
-      <input type="text" id="name" maxlength="40" autocomplete="off" />
+      <input type="text" id="name" maxlength="40" autocomplete="off" enterkeyhint="send" />
     </label>
 
     <!-- people never see this; bots fill it in -->
