@@ -920,7 +920,7 @@
 
   function sourceLabel() {
     if (state.tab === "file" && state.file.name) return state.file.name;
-    const sample = { invoices: "sInvoices", fib: "sFib", messy: "sMessy", invented: "sInvented", limit: "sLimit" }[lastSample];
+    const sample = { invoices: "sInvoices", fib: "sFib", messy: "sMessy", invented: "sInvented", limit: "sLimit", class: "sClass" }[lastSample];
     return sample ? t(sample) : t("pngPasted");
   }
 
@@ -1345,8 +1345,38 @@
   const sampleSize = $("sample-size");
   let lastSample = null;
 
+  // The classroom demo: ten made-up numbers per person, collected on /szamok
+  // and read live from the same database. Real data, so the size picker
+  // doesn't apply.
+  async function loadClass() {
+    lastSample = "class";
+    textarea.placeholder = t("placeholder"); // clear an earlier failure message
+    let nums;
+    try {
+      const res = await fetch("/api/numbers");
+      const out = await res.json();
+      if (!out.ok) throw new Error(out.error);
+      nums = out.nums;
+    } catch {
+      if (lastSample !== "class") return;
+      // the file status line lives on the other tab, so say it in the empty box
+      textarea.value = "";
+      textarea.placeholder = t("classFail");
+      readPaste();
+      update();
+      return;
+    }
+    if (lastSample !== "class") return; // another sample was picked meanwhile
+    textarea.value = nums.join("\n");
+    textarea.scrollTop = 0;
+    readPaste();
+    update();
+  }
+
   function loadSample(name) {
+    if (name === "class") return loadClass();
     lastSample = name;
+    textarea.placeholder = t("placeholder");
     textarea.value = SAMPLES[name](+sampleSize.value, moneyFmt()).join("\n");
     textarea.scrollTop = 0;
     readPaste();
@@ -1368,7 +1398,7 @@
 
   // changing the size re-rolls the sample you're looking at, unless you've edited it
   sampleSize.addEventListener("change", () => {
-    if (lastSample && state.tab === "paste") loadSample(lastSample);
+    if (lastSample && lastSample !== "class" && state.tab === "paste") loadSample(lastSample);
   });
   textarea.addEventListener("input", () => { lastSample = null; });
 
