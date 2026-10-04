@@ -891,6 +891,175 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
+  /* ---------------- chart as PNG ---------------- */
+
+  // A self-contained figure for slides and reports: test and result on top,
+  // the chart, and a footer with n, MAD, p, the data source and the date.
+  // Drawn on a canvas (not a copy of the on-screen SVG) so it can use a
+  // light background and the page's web fonts at twice the resolution.
+  const PNG = {
+    W: 1600, H: 1000, scale: 2, pad: 64,
+    bg: "#ffffff", ink: "#14120f", ink2: "#4a443d", ink3: "#8a8178", grid: "#e6e0d8",
+    bar: "#a89c8f", barOff: "#3b3530", accent: "#e0402b", band: "rgba(224, 64, 43, 0.13)",
+    serif: '"Fraunces", Georgia, serif', mono: '"IBM Plex Mono", ui-monospace, monospace',
+  };
+
+  function wrapText(ctx, text, maxWidth) {
+    const lines = [];
+    let line = "";
+    for (const word of text.split(/\s+/)) {
+      const next = line ? line + " " + word : word;
+      if (ctx.measureText(next).width > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else line = next;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  function sourceLabel() {
+    if (state.tab === "file" && state.file.name) return state.file.name;
+    const sample = { invoices: "sInvoices", fib: "sFib", messy: "sMessy", invented: "sInvented", limit: "sLimit" }[lastSample];
+    return sample ? t(sample) : t("pngPasted");
+  }
+
+  async function drawPng(a) {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const { W, H, scale, pad } = PNG;
+    const canvas = document.createElement("canvas");
+    canvas.width = W * scale;
+    canvas.height = H * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.fillStyle = PNG.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const test = a.test, P = test.p, k = a.k, fine = k > 20, plain = !a.enough;
+
+    // title: test · result
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = PNG.ink;
+    ctx.font = `700 46px ${PNG.serif}`;
+    ctx.fillText(`${titleOf(test)} · ${t("fit_" + fitOf(a))}`, pad, pad + 40);
+
+    // the sentence the result stands on
+    ctx.font = `400 21px ${PNG.mono}`;
+    ctx.fillStyle = PNG.ink2;
+    const sub = plain ? t("fewSub", { test: test.id, min: fmtInt(test.nMin), n: fmtInt(a.n) }) : describe(a);
+    let y = pad + 90;
+    for (const line of wrapText(ctx, sub, W - pad * 2).slice(0, 4)) {
+      ctx.fillText(line, pad, y);
+      y += 31;
+    }
+
+    // legend
+    y += 22;
+    ctx.font = `500 19px ${PNG.mono}`;
+    let x = pad;
+    const key = (draw, label) => {
+      draw(x, y);
+      ctx.fillStyle = PNG.ink2;
+      ctx.fillText(label, x + 30, y + 6);
+      x += 30 + ctx.measureText(label).width + 36;
+    };
+    key((kx, ky) => { ctx.fillStyle = PNG.bar; ctx.fillRect(kx, ky - 9, 18, 18); }, t("keyObs"));
+    if (!plain) {
+      key((kx, ky) => { ctx.strokeStyle = PNG.accent; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(kx - 2, ky); ctx.lineTo(kx + 22, ky); ctx.stroke(); }, modelOf(test));
+      key((kx, ky) => { ctx.fillStyle = PNG.band; ctx.fillRect(kx, ky - 9, 20, 18); }, t("keyBand"));
+    }
+
+    // chart area
+    const m = { t: y + 40, r: pad, b: H - 150, l: pad + 62 };
+    const iw = W - m.l - m.r, ih = m.b - m.t;
+    const top = Math.max(...a.obs, ...(plain ? [] : P.map((e, i) => e + a.band[i]))) * 1.08;
+    const step = top <= 0.03 ? 0.005 : top <= 0.08 ? 0.01 : top <= 0.2 ? 0.025 : top <= 0.5 ? 0.05 : 0.1;
+    const yMax = Math.ceil(top / step) * step;
+    const yy = (v) => m.b - (Math.min(v, yMax) / yMax) * ih;
+    const cw = iw / k;
+    const cx = (i) => m.l + cw * (i + 0.5);
+
+    ctx.font = `400 17px ${PNG.mono}`;
+    ctx.textAlign = "right";
+    for (let v = 0; v <= yMax + 1e-9; v += step) {
+      ctx.strokeStyle = PNG.grid;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(m.l, Math.round(yy(v)) + 0.5);
+      ctx.lineTo(W - m.r, Math.round(yy(v)) + 0.5);
+      ctx.stroke();
+      ctx.fillStyle = PNG.ink3;
+      ctx.fillText(fmtNum(+(v * 100).toFixed(1)) + "%", m.l - 12, yy(v) + 6);
+    }
+
+    const bw = fine ? Math.max(1, cw - 2) : cw * 0.5, bandW = fine ? cw : cw * 0.78;
+    P.forEach((e, i) => {
+      if (!plain) {
+        const lo = Math.max(0, e - a.band[i]), hi = e + a.band[i];
+        ctx.fillStyle = PNG.band;
+        ctx.fillRect(cx(i) - bandW / 2, yy(hi), bandW, Math.max(1, yy(lo) - yy(hi)));
+      }
+      const off = !plain && Math.abs(a.z[i]) > 1.96;
+      ctx.fillStyle = off ? PNG.barOff : PNG.bar;
+      ctx.fillRect(cx(i) - bw / 2, yy(a.obs[i]), bw, m.b - yy(a.obs[i]));
+    });
+
+    if (!plain) {
+      ctx.strokeStyle = PNG.accent;
+      ctx.lineWidth = 3;
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      P.forEach((e, i) => (i ? ctx.lineTo(cx(i), yy(e)) : ctx.moveTo(cx(i), yy(e))));
+      ctx.stroke();
+      if (!fine) {
+        P.forEach((e, i) => {
+          ctx.beginPath();
+          ctx.arc(cx(i), yy(e), 5.5, 0, Math.PI * 2);
+          ctx.fillStyle = PNG.bg;
+          ctx.fill();
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        });
+      }
+    }
+
+    // x axis labels
+    ctx.fillStyle = PNG.ink2;
+    ctx.font = `500 ${fine ? 17 : 21}px ${PNG.mono}`;
+    ctx.textAlign = fine ? "left" : "center";
+    test.labels.forEach((l, i) => {
+      if (!fine || i % 10 === 0) ctx.fillText(String(l), fine ? m.l + cw * i : cx(i), m.b + 30);
+    });
+
+    // footer: numbers, source, date, tool
+    ctx.textAlign = "left";
+    ctx.font = `400 17px ${PNG.mono}`;
+    ctx.fillStyle = PNG.ink3;
+    const facts = [`n = ${fmtInt(a.n)}`];
+    if (!plain) facts.push(`MAD ${dec(a.mad, 4)} (${conformity(a)})`, `${t("stP")} ${pText(a.p)}`);
+    ctx.fillText(facts.join("   ·   "), pad, H - 62);
+    const date = new Date().toLocaleDateString(loc());
+    ctx.fillText(`${t("pngSource")}: ${sourceLabel()}   ·   ${date}   ·   tothdavid.eu/benford`, pad, H - 34);
+
+    return new Promise((res) => canvas.toBlob(res, "image/png"));
+  }
+
+  $("dl-png").addEventListener("click", async () => {
+    const a = lastAnalysis;
+    if (!a) return;
+    const blob = await drawPng(a);
+    if (!blob) return flash(t("pngFail"));
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const name = { first: "first-digit", second: "second-digit", firstTwo: "first-two-digits", lastTwo: "last-two-digits" }[a.test.id];
+    link.href = url;
+    link.download = `benford-${name}-${new Date().toISOString().slice(0, 10)}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
   $("copy-sum").addEventListener("click", async () => {
     if (!lastAll) return;
     try {

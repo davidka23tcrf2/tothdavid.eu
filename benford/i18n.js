@@ -161,6 +161,10 @@
     noteTop: ({ k }) => `The 12 biggest deviations, largest first. Download the CSV for all ${k}.`,
     noteCommon: "The most common values in your data.",
 
+    dlPng: "Download chart (PNG)",
+    pngSource: "Data",
+    pngPasted: "pasted numbers",
+    pngFail: "Couldn't create the image",
     dlCsv: "Download CSV",
     copySum: "Copy summary",
     copied: "Copied",
@@ -357,6 +361,10 @@
     noteTop: ({ k }) => `A 12 legnagyobb eltérés, csökkenő sorrendben. Mind a ${k} értékhez töltsd le a CSV-t.`,
     noteCommon: "A leggyakoribb értékek az adataidban.",
 
+    dlPng: "Grafikon letöltése (PNG)",
+    pngSource: "Adatok",
+    pngPasted: "beillesztett számok",
+    pngFail: "Nem sikerült elkészíteni a képet",
     dlCsv: "CSV letöltése",
     copySum: "Összefoglaló másolása",
     copied: "Kimásolva",
