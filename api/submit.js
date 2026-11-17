@@ -17,7 +17,15 @@ const cleanName = (s) => String(s || "").replace(/[^\p{L}\p{N} .'\-]/gu, "").rep
 
 const validDevice = (d) => /^[\w-]{8,64}$/.test(d);
 
+// The collection is finished. Nothing new is accepted, whatever the admin
+// toggle says; what was collected stays in the database for /api/numbers.
+const ENDED = true;
+
 module.exports = async (req, res) => {
+  if (ENDED) {
+    if (req.method === "GET") return S.send(res, 200, { open: false, ended: true, already: false });
+    return S.send(res, 200, { ok: false, error: "ended" });
+  }
   if (!S.configured()) return S.send(res, 503, { ok: false, error: "not_configured" });
 
   try {

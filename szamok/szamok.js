@@ -33,6 +33,7 @@
     e_copy: "Ezek a számok nagyon hasonlítanak egy korábbi beküldésre. Találj ki sajátokat.",
     e_already: "Erről az eszközről már beküldtél számokat. Köszönjük!",
     e_closed: "A gyűjtés most szünetel.",
+    e_ended: "A gyűjtés lezárult. Köszönjük mindenkinek, aki részt vett!",
     e_busy: "Túl sok beküldés érkezett innen rövid idő alatt. Várj pár percet, és próbáld újra.",
     e_other: "Valami hiba történt. Próbáld újra egy kicsit később.",
   };
@@ -61,6 +62,7 @@
     e_copy: "These are very close to numbers someone already sent. Make up your own.",
     e_already: "You've already sent numbers from this device. Thank you!",
     e_closed: "Collection is paused right now.",
+    e_ended: "The collection has ended. Thank you to everyone who took part!",
     e_busy: "Too many submissions from here in a short time. Wait a few minutes and try again.",
     e_other: "Something went wrong. Try again in a little while.",
   };
@@ -161,16 +163,26 @@
   }
 
   async function checkStatus() {
-    if (store.get(DONE)) return showDone("e_already");
+    // ask the server first: once collection has ended, that's what everyone sees
+    $("form").hidden = true;
+    let info = null;
     try {
       const res = await fetch("/api/submit?device=" + encodeURIComponent(deviceId()), { cache: "no-store" });
-      if (!res.ok) return;
-      const info = await res.json();
+      if (res.ok) info = await res.json();
+    } catch { /* offline: the submit will say so */ }
+    if (info && info.ended) {
+      document.querySelector(".lede").hidden = true;
+      document.querySelector(".intro").hidden = true;
+      return showDone("e_ended");
+    }
+    if (store.get(DONE)) return showDone("e_already");
+    $("form").hidden = false;
+    if (info) {
       if (info.already) {
         store.set(DONE, "1");
         showDone("e_already");
       } else if (!info.open) showMsg("e_closed");
-    } catch { /* offline: the submit will say so */ }
+    }
   }
 
   /* ---------------- submit ---------------- */
@@ -203,6 +215,8 @@
       if (out.ok) {
         store.set(DONE, "1");
         showDone();
+      } else if (out.error === "ended") {
+        showDone("e_ended");
       } else if (out.error === "already") {
         store.set(DONE, "1");
         showDone("e_already");
