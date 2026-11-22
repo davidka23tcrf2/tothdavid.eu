@@ -17,6 +17,8 @@ module.exports = async (req, res) => {
     res.end(JSON.stringify({ ok: true, people: subs.length, nums: subs.flatMap((s) => s.nums) }));
   } catch (err) {
     console.error(err);
-    return S.send(res, 500, { ok: false, error: "server" });
+    // a short, secret-free hint: "redis 401", "redis 404", "ENOTFOUND"…
+    const reason = /^redis \d+$/.test(err.message) ? err.message : (err.cause && err.cause.code) || "other";
+    return S.send(res, 500, { ok: false, error: "server", reason });
   }
 };
