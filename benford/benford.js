@@ -1345,18 +1345,17 @@
   const sampleSize = $("sample-size");
   let lastSample = null;
 
-  // The classroom demo: ten made-up numbers per person, collected on /szamok
-  // and read live from the same database. Real data, so the size picker
-  // doesn't apply.
+  // The classroom demo: ten made-up numbers per person, collected on /szamok.
+  // The database is gone, so this is a fixed copy of the 19 submissions that
+  // survived (190 numbers). Real data, so the size picker doesn't apply.
   async function loadClass() {
     lastSample = "class";
     textarea.placeholder = t("placeholder"); // clear an earlier failure message
     let nums;
     try {
-      const res = await fetch("/api/numbers");
-      const out = await res.json();
-      if (!out.ok) throw new Error(out.error);
-      nums = out.nums;
+      const res = await fetch("/benford/osztaly.txt");
+      if (!res.ok) throw new Error(res.status);
+      nums = (await res.text()).split(/\s+/).filter(Boolean);
     } catch {
       if (lastSample !== "class") return;
       // the file status line lives on the other tab, so say it in the empty box

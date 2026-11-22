@@ -18,7 +18,7 @@ const cleanName = (s) => String(s || "").replace(/[^\p{L}\p{N} .'\-]/gu, "").rep
 const validDevice = (d) => /^[\w-]{8,64}$/.test(d);
 
 // The collection is finished. Nothing new is accepted, whatever the admin
-// toggle says; what was collected stays in the database for /api/numbers.
+// toggle says.
 const ENDED = true;
 
 module.exports = async (req, res) => {
