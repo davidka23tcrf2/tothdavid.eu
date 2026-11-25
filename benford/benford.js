@@ -1281,7 +1281,8 @@
   const SAMPLES = {
     invoices(n, money) {
       const r = rng(1729), g = gaussOf(r);
-      return Array.from({ length: n }, () => money.format(Math.exp(6 + 1.7 * g())));
+      // amounts spread over several orders of magnitude, as real invoices are
+      return Array.from({ length: n }, () => money.format(Math.exp(6 + 2.1 * g())));
     },
     fib(n) {
       // exact for the first 300, then mantissa × 10^exponent (12 digits),
@@ -1296,12 +1297,18 @@
       return out;
     },
     messy(n, money) {
-      // Real, but not textbook: spending with a narrower spread plus a
-      // recurring 24 to 38 charge (a subscription, a fee) making up 12% of
-      // rows. It deviates from Benford for a perfectly innocent reason.
+      // Real, but not textbook: three sources mixed together (small
+      // purchases, invoices, large contracts) plus a recurring 24 to 38
+      // charge (a subscription, a fee) in 4% of rows. It still follows
+      // Benford, just less tightly than the clean samples: an acceptable
+      // fit, as real data usually is.
       const r = rng(2024), g = gaussOf(r);
-      return Array.from({ length: n }, () =>
-        money.format(r() < 0.12 ? 24 + r() * 14 : Math.exp(5.5 + 1.6 * g())));
+      const SOURCES = [[4.5, 1.8], [7, 2], [9.5, 1.7]];
+      return Array.from({ length: n }, () => {
+        if (r() < 0.04) return money.format(24 + r() * 14);
+        const [mu, sigma] = SOURCES[Math.floor(r() * 3)];
+        return money.format(Math.exp(mu + sigma * g()));
+      });
     },
     invented(n, money) {
       // How people make amounts up: leading digits spread evenly, later
@@ -1334,11 +1341,12 @@
       });
     },
     limit(n, money) {
-      // Genuine expense claims, except 7% were split or trimmed to land just
-      // under a 5,000 sign-off limit. The first-two-digits test finds the 48s and 49s.
-      const r = rng(5000), g = gaussOf(r);
+      // Genuine expense claims, except 4% were split or trimmed to land just
+      // under a 5,000 sign-off limit. The first digit still looks fine; the
+      // first-two-digits test finds the pile of 49s.
+      const r = rng(4999), g = gaussOf(r);
       return Array.from({ length: n }, () =>
-        money.format(r() < 0.07 ? 4800 + r() * 199 : Math.exp(6.2 + 1.5 * g())));
+        money.format(r() < 0.04 ? 4900 + r() * 99 : Math.exp(6.2 + 2.1 * g())));
     },
   };
 
